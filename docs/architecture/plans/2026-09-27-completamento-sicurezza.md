@@ -14,7 +14,7 @@
 
 - Non terminare mai il processo dell'utente. Non fare commit Git. Italiano, commenti senza accenti.
 - Baseline di riferimento: **33 test verdi** su `cryo_cooler_controller` + **7** su `cryo_cooler_controller_lib`, **0 warning**.
-- Verifiche: `cd C:\Users\Stargate\AppData\Local\Temp && cmd //c b2.bat` e `cargo test --target-dir target\b2 -p cryo_cooler_controller`.
+- Verifiche: `cd <TMP> && cmd //c b2.bat` e `cargo test --target-dir target\b2 -p cryo_cooler_controller`.
 - Criterio di non-regressione: nessuna delle 40 verifiche esistenti può cambiare esito, e il build deve restare a **0 warning**.
 
 ---
@@ -198,7 +198,7 @@ Applica a: temperature → `SEM_TEMPERATURA`; potenza e tensione → `SEM_POTENZ
 - [ ] **Step 1: verifica finale completa**
 
 ```bash
-cd C:\Users\Stargate\Desktop\stargate-cryo-v24-clean\stargate-cryo-fixed
+cd <REPO>
 touch cryo_cooler_controller/src/running.rs
 call "C:\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 cargo build  --target-dir target\b2 -p cryo_cooler_controller
@@ -211,7 +211,7 @@ Atteso: 0 errori, **0 warning**, 35 + 7 test verdi.
 - [ ] **Step 2: release in directory nuova**
 
 ```bash
-cd C:\Users\Stargate\AppData\Local\Temp
+cd <TMP>
 sed 's/r10/r29/' rel10.bat > rel29.bat
 cmd //c rel29.bat
 ```

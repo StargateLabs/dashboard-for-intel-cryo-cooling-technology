@@ -19,7 +19,7 @@
 - **Protocollo intoccabile:** `0x14`, `0x18`, il loro ordine, `payload_alimentazione()` e la allowlist di sola lettura non si modificano. Sono verificati.
 - **`running.rs` non si sposta e non si divide.** È escluso dalla specifica di proposito.
 - **I commenti che spiegano un bug passato non si cancellano** (I12). Se un commento diventa falso, si corregge — non si rimuove.
-- **R84 non si tocca mai:** `C:\Users\Stargate\Desktop\StargateCryo\cryo_cooler_controller.exe`, MD5 `849d2ebb9c544ec00425092b93dd2310`.
+- **R84 non si tocca mai:** `<ESEGUIBILI>\cryo_cooler_controller.exe`, MD5 `849d2ebb9c544ec00425092b93dd2310`.
 - **Il commento importante sul protocollo:** `Tec::new` non deve poter emettere `0x1E` in nessun caso, nemmeno su una board non inizializzata.
 
 ---
@@ -726,7 +726,7 @@ Zero errori, zero warning nuovi. Il warning preesistente in
 ```bash
 CARGO_TARGET_DIR=target/r117 cargo build --release
 ```
-Copia in `C:\Users\Stargate\Desktop\StargateCryo\cryo_cooler_controller_r117.exe`.
+Copia in `<ESEGUIBILI>\cryo_cooler_controller_r117.exe`.
 Verifica con `md5sum` che `cryo_cooler_controller.exe` (r84) sia **invariato**:
 `849d2ebb9c544ec00425092b93dd2310`.
 

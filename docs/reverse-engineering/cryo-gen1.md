@@ -3,7 +3,7 @@
 > Documento di riferimento per il comando di cambio modalità.
 > Fonte: binari originali Intel, estratti dall'installer
 > `intel_r_cryo_cooling_technology_v1.1.0.319_release.exe`.
-> Copia di lavoro: `C:\Users\Stargate\Desktop\cryo-re\`
+> Copia di lavoro: `<CRYO_RE>\`
 > md5 `CryoCoolingService.exe`            = `dfd3285b925800207245bfcec6d66da9`
 > md5 `IntelCryoCooling.Controller.dll`   = `e78c6706b27f900aa2028c2e4e411167`
 
@@ -356,8 +356,8 @@ Next
 Le `Replace()` eliminano `Intel(R)`, `Core(TM)`, `i9`, `-`, ecc.
 `Intel(R) Core(TM) i9-14900KS` → **`14900KS`**.
 
-Installer patchato: `C:\Users\Stargate\Desktop\Intel-Cryo-CPU-UNLOCKED.exe`
-(md5 `43341d9dfb25f8962e2debda1b662e60`), con `14900KS` al posto di `10900KF`,
+Installer patchato: `<INSTALLER_PATCHATO>`
+con `14900KS` al posto di `10900KF`,
 `14900KF` al posto di `10700KF`, `14700KS` al posto di `11600KF`.
 Sostituzioni a lunghezza identica: dimensione del file invariata.
 

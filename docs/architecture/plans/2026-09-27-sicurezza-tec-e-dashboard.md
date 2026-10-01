@@ -17,10 +17,10 @@
 - Hardware: controller **V1** su modulo TEC **V2**. Il V1 **non** ha controllo di pompa/ventole **né** sensore RPM pompa. Questo vale per ogni decisione sulla pompa.
 - Soglie termiche: Standby oltre 80 °C, Shutdown oltre 90 °C, guardia software a 66 °C, banda morta 58–66 °C.
 - Comandi di verifica, tutti già usati con successo:
-  - build: `cd C:\Users\Stargate\AppData\Local\Temp && cmd //c b2.bat`
-  - test: `cd C:\Users\Stargate\Desktop\stargate-cryo-v24-clean\stargate-cryo-fixed && cargo test --target-dir target\b2 -p cryo_cooler_controller`
+  - build: `cd <TMP> && cmd //c b2.bat`
+  - test: `cd <REPO> && cargo test --target-dir target\b2 -p cryo_cooler_controller`
   - baseline al momento della stesura: **22 test verdi, 0 warning**
-- Deploy: copiare l'eseguibile in `C:\Users\Stargate\Desktop\cryo_cooler_controller.exe` **solo** se nessun processo lo blocca; usare lo script di attesa descritto nel Task 13.
+- Deploy: copiare l'eseguibile in `<ESEGUIBILE>` **solo** se nessun processo lo blocca; usare lo script di attesa descritto nel Task 13.
 - Commenti in italiano, senza accenti (convenzione del file già esistente).
 - Nessun valore di allarme può essere inventato. Se una misurazione non esiste, la regola non si valuta: è la regola introdotta in `alerts.rs` e protetta da test.
 
@@ -50,8 +50,8 @@
 - [ ] **Step 1: Congela la baseline**
 
 ```bash
-cd "C:\Users\Stargate\Desktop\stargate-cryo-v24-clean\stargate-cryo-fixed"
-cp cryo_cooler_controller/src/running.rs "C:\Users\Stargate\AppData\Local\Temp\running_r27_backup.rs"
+cd "<REPO>"
+cp cryo_cooler_controller/src/running.rs "<TMP>\running_r27_backup.rs"
 ```
 
 - [ ] **Step 2: Verifica che la baseline è verde**
@@ -870,8 +870,8 @@ Expected: 33 passed
 - [ ] **Step 1: Verifica completa**
 
 ```bash
-cd "C:\Users\Stargate\AppData\Local\Temp" && cmd //c b2.bat
-cd "C:\Users\Stargate\Desktop\stargate-cryo-v24-clean\stargate-cryo-fixed"
+cd "<TMP>" && cmd //c b2.bat
+cd "<REPO>"
 call "C:\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 cargo test --target-dir target\b2 -p cryo_cooler_controller
 ```
@@ -881,7 +881,7 @@ Expected: 0 errori, 0 warning, tutti i test verdi.
 - [ ] **Step 2: Build release in una directory nuova**
 
 ```bash
-cd "C:\Users\Stargate\AppData\Local\Temp"
+cd "<TMP>"
 sed 's/r10/r28/' rel10.bat > rel28.bat
 cmd //c rel28.bat
 ```
@@ -890,8 +890,8 @@ cmd //c rel28.bat
 
 ```powershell
 # deploy_attesa.ps1: aspetta che l'utente chiuda l'app, poi copia.
-$src = 'C:\Users\Stargate\Desktop\stargate-cryo-v24-clean\stargate-cryo-fixed\target\r28\release\cryo_cooler_controller.exe'
-$dst = 'C:\Users\Stargate\Desktop\cryo_cooler_controller.exe'
+$src = '<REPO>\target\r28\release\cryo_cooler_controller.exe'
+$dst = '<ESEGUIBILE>'
 while (Get-Process -Name 'cryo_cooler_controller' -ErrorAction SilentlyContinue) {
     Start-Sleep -Seconds 2
 }
