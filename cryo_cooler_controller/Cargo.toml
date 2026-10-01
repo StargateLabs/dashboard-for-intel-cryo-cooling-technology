@@ -1,0 +1,50 @@
+[package]
+name = "cryo_cooler_controller"
+version = "2.5.0"
+edition = "2021"
+
+[dependencies]
+plotters = { version = "0.3", default-features = false, features = [
+    "chrono",
+    "area_series",
+    "line_series",
+    "point_series",
+] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+plotters-backend = "0.3"
+iced = { version = "0.13", features = ["canvas", "tokio", "image", "wgpu"] }
+# iced non riesporta `Linear` (serve per i gradienti a stop multipli):
+# usiamo iced_core direttamente, stessa versione della gerarchia iced.
+iced_core = "0.13"
+plotters-iced = "0.11"
+cryo_cooler_controller_lib = { path = "../cryo_cooler_controller_lib" }
+iced_aw = { version = "0.12", default-features = false, features = ["number_input", "badge", "card"] }
+# Icarte di +/- dei NumberInput: senza questo font le frecce restano
+# quadratini vuoti. iced_aw lo dichiara come REQUIRED_FONT ma non lo
+# carica da solo: deve essere registrato dall'applicazione.
+iced_fonts = "*"
+serial2 = "*"
+serialport = "4"
+tray-icon = "0.4.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls", "blocking"] }
+# Dipendenza diretta per forzare time >= 0.3.36 (fix bug E0282 in 0.3.31)
+time = { version = ">=0.3.36" }
+rusqlite = { version = "0.31", features = ["bundled"] }
+printpdf = "0.7"
+dirs = "5"
+
+[build-dependencies]
+image = "0.24.5"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.48", features = [
+    "Win32_System_Memory",
+    "Win32_Foundation",
+    "Win32_System_Threading",
+    "Win32_Security",
+] }
+winreg = "0.56"
+

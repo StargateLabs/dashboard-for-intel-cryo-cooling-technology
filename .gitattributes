@@ -1,0 +1,19 @@
+# Normalizzazione dei terminatori di riga: LF nel repository, CRLF in checkout
+# su Windows. Senza questo i file oscillano tra i due formati e ogni diff
+# diventa rumore.
+* text=auto
+
+*.rs      text eol=lf
+*.toml    text eol=lf
+*.lock    text eol=lf
+*.md      text eol=lf
+*.yml     text eol=lf
+*.sh      text eol=lf
+.gitignore  text eol=lf
+.gitattributes text eol=lf
+
+# Binari: mai toccati da git
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.raw     binary

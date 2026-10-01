@@ -1,0 +1,24 @@
+# Stargate Labs CryoCooling Dashboard — udev Rules
+# Place in: /etc/udev/rules.d/99-stargate-cryo.rules
+# Reload: sudo udevadm control --reload-rules
+#
+# This grants serial port access to the stargate-cryo application
+# without requiring root privileges.
+
+# FTDI FT232R / FT232RL
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", MODE="0666", GROUP="dialout", SYMLINK+="stargate-cryo"
+
+# CH340G / CH341
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", MODE="0666", GROUP="dialout", SYMLINK+="stargate-cryo"
+
+# CH340E (different product ID)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55dd", MODE="0666", GROUP="dialout", SYMLINK+="stargate-cryo"
+
+# Silicon Labs CP2102 / CP2103 / CP2104
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", MODE="0666", GROUP="dialout", SYMLINK+="stargate-cryo"
+
+# Prolific PL2303 / PL2303RA
+SUBSYSTEM=="tty", ATTRS{idVendor}=="067b", ATTRS{idProduct}=="2303", MODE="0666", GROUP="dialout", SYMLINK+="stargate-cryo"
+
+# Qinheng CH9102 (compatible with CH340)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d2", MODE="0666", GROUP="dialout", SYMLINK+="stargate-cryo"

@@ -1,0 +1,17 @@
+[Desktop Entry]
+Version=2.4
+Name=Stargate CryoCooling
+GenericName=Intel TEC Controller
+Comment=Stargate Labs CryoCooling Dashboard — Intel TEC Controller
+Comment[it]=Dashboard CryoCooling di Stargate Labs — Controller TEC Intel
+Comment[de]=Stargate Labs CryoCooling Dashboard — Intel TEC-Controller
+Exec=/usr/local/bin/stargate-cryo
+Icon=stargate-cryo
+Terminal=false
+Type=Application
+Categories=Utility;HardwareSettings;System;
+Keywords=tec;cooling;cryo;temperature;intel;stargate;
+StartupNotify=true
+StartupWMClass=stargate-cryo
+MimeType=
+X-GNOME-UsesNotifications=true

@@ -1,0 +1,50 @@
+# Build
+/target
+**/target/
+
+# Binari ed eseguibili
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# Reverse engineering: i binari Intel NON vengono ridistribuiti
+cryo-re/
+cryo-re-BACKUP/
+Intel-Cryo-CPU-UNLOCKED.exe
+*.cab
+
+# Backup di sorgente
+*.bak
+*.orig
+*.rej
+
+# Log e artefatti di collaudo
+*.log
+*.csv
+!docs/releases/*.csv
+recovery-self-test/
+
+# Configurazione e dati locali
+*.db
+*.sqlite
+*.sqlite3
+autosave.csv
+config.json
+
+# Credenziali: MAI committare
+.env
+.env.*
+*.key
+*.pem
+secrets*
+
+# Editor e OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store
