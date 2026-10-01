@@ -364,13 +364,18 @@ accendere il TEC da solo.
 
 Tutto il lavoro è documentato, incluse le ipotesi **smentite**.
 
-| Sezione | Contenuto |
+| Documento | Contenuto |
 |---|---|
-| [`docs/reverse-engineering/`](docs/reverse-engineering/) | analisi dei binari Intel: architettura a 3 strati, tabella opcode con RVA, logica dei regimi, lista CPU dell'installer |
-| [`docs/hardware/`](docs/hardware/) | analisi della cella Peltier, ottimizzazione before/after, tabella codici errore, layout verticale |
-| [`docs/architecture/`](docs/architecture/) | specifica "un solo percorso di comando", 12 invarianti, 4 difetti, piani di lavoro |
-| [`docs/releases/`](docs/releases/) | una nota per ogni build verificata, da R1 a R13, con evidenze e limiti |
-| [`docs/README-originale-upstream.md`](docs/README-originale-upstream.md) | il README del progetto originale, per confronto |
+| [`reverse-engineering/cryo-gen1.md`](docs/reverse-engineering/cryo-gen1.md) | analisi dei binari Intel: architettura a 3 strati, tabella opcode con RVA, logica dei regimi, lista CPU dell'installer |
+| [`reverse-engineering/protocol.md`](docs/reverse-engineering/protocol.md) | protocollo operativo: frame, CRC, 21 opcode, allowlist di sola lettura, 18 bit di stato e una discrepanza ancora aperta |
+| [`hardware/cella-peltier.md`](docs/hardware/cella-peltier.md) | la legge che governa una cella Peltier, cosa manca nelle misure, ordine di intervento |
+| [`hardware/ottimizzazione-before-after.md`](docs/hardware/ottimizzazione-before-after.md) | due ipotesi smentite dalle misure: il tetto 200 W e l'OCP |
+| [`hardware/error-codes.md`](docs/hardware/error-codes.md) | CB2, CF1-CF7, OT1-OT3, TD1, DT1-DT2, CB1 e le soglie della dashboard |
+| [`hardware/layout-verticale.md`](docs/hardware/layout-verticale.md) | disposizione a due colonne per monitor verticali, palette dei canali, comportamento degli indicatori |
+| [`architecture/unico-percorso-di-comando.md`](docs/architecture/unico-percorso-di-comando.md) | 12 invarianti, i 4 difetti D1-D4, e cosa il progetto ha deciso di non fare |
+| [`architecture/plans/`](docs/architecture/plans/) | i piani di lavoro che hanno prodotto le correzioni |
+| [`releases/`](docs/releases/) | una nota per ogni build verificata, da R1 a R13, con evidenze e limiti |
+| [`README-originale-upstream.md`](docs/README-originale-upstream.md) | il README del progetto originale, per confronto |
 
 ---
 
