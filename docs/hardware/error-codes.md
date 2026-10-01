@@ -57,9 +57,9 @@ monitoraggio fallisce ripetutamente.
 | Soglia | Valore | Ruolo |
 |---|---|---|
 | Guardia termica controller | 58 / 66 / 76 °C | tre livelli, sotto i limiti del firmware (80 °C e 90 °C) |
-| Margine anticondensa | 1.0 °C | sotto questa soglia la potenza non sale |
-| Margine di lavoro | 2.0 °C | obiettivo della piastra sopra la rugiada |
-| Banda di lavoro | 2.5 – 3.0 °C | isteresi del regolatore, ±0.75 °C |
+| Margine anticondensa | 1,0 °C | sotto questa soglia la potenza non sale |
+| Margine di lavoro | 2,0 °C | obiettivo della piastra sopra la rugiada |
+| Banda di lavoro | 2,5 – 3,0 °C | isteresi del regolatore, ±0,75 °C |
 | Budget software | 100 % = 200 W | **obiettivo di retroazione**, non un tetto elettrico |
 
 Questi numeri sono **scelte software**, non una taratura certificata di questo assemblaggio. Le

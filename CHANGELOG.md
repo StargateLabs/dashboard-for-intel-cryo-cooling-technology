@@ -62,8 +62,8 @@ media **12.406 %**, min 11.121 %, max 13.504 %. La fluidità percepita resta da
 confermare con l'utente.
 
 → [`docs/releases/R11-fluidita-30fps.md`](docs/releases/R11-fluidita-30fps.md) ·
-[`dati-gpu-r9-prima.csv`](docs/releases/dati-gpu-r9-prima.csv) (12.7–15.0 %) ·
-[`dati-gpu-r10.csv`](docs/releases/dati-gpu-r10.csv) (1.2–1.8 %, non confrontabile)
+[`dati-gpu-r9-prima.csv`](docs/releases/dati-gpu-r9-prima.csv) (12,7–15,0 %) ·
+[`dati-gpu-r10.csv`](docs/releases/dati-gpu-r10.csv) (1,2–1,8 %, non confrontabile)
 
 ---
 
@@ -85,7 +85,7 @@ del raffreddamento a 90 °C non è stata riprodotta.
 
 ## R9: Prima misura di sovraccarico GPU
 
-Prima misura del carico GPU dell'applicazione: **12.7–15.0 %** su cinque campioni.
+Prima misura del carico GPU dell'applicazione: **12,7–15,0 %** su cinque campioni.
 Ha motivato R10 e R11.
 
 ---
@@ -199,7 +199,7 @@ disegno può aumentare il carico grafico.
 | Profilo | Budget software | Obiettivo piastra sopra rugiada | Offset iniziale |
 |---|---|---|---|
 | Silenzioso / Idle | 60 W | +6 °C | +6 °C |
-| Gaming | 120 W | +3.5 °C | +3 °C |
+| Gaming | 120 W | +3,5 °C | +3 °C |
 | AI / Rendering | 160 W | +3 °C | +2 °C |
 
 **Validazione**: 298 test. **Non dimostrato**: i tre profili non sono ancora stati
@@ -221,7 +221,7 @@ Prima verifica su hardware reale (COM5, `HW 4`, firmware `13.A0`).
 - **Il tetto di potenza non è un limite affidabile**: richiesto 30 %, letto
   98–100 %, circa 246–260 W. L'uguaglianza tra percentuale richiesta e duty letta
   **non** conferma un cap.
-- Offset +2 → ~253–259 W · Offset +10 → ~6–10 W · Offset +20 → ~0.5–0.6 W.
+- Offset +2 → ~253–259 W · Offset +10 → ~6–10 W · Offset +20 → ~0,5–0,6 W.
   *Prova breve, condizioni diverse da regime stazionario: non è una curva di COP.*
 - Ogni prova seriale diretta terminata con **disable confermato**.
 
@@ -232,7 +232,7 @@ Prima verifica su hardware reale (COM5, `HW 4`, firmware `13.A0`).
 - In Cryo la regolazione cambia la domanda tramite offset e osserva piastra, rugiada,
   PCB e watt. **Non deduce** la temperatura della ceramica calda dalla PCB e **non usa
   un COP inventato** per comandare l'hardware.
-- Ricerca graduale: passo di 0.5 °C, attesa 30 s; **annulla** un aumento che aggiunge
+- Ricerca graduale: passo di 0,5 °C, attesa 30 s; **annulla** un aumento che aggiunge
   watt senza migliorare la piastra; pausa 120 s dopo un aumento inutile.
 - Budget software: 100 % = 200 W. *Non è una dichiarazione del rating elettrico del
   controller e NON è un limite istantaneo.*

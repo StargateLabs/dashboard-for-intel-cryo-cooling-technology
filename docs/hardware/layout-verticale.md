@@ -18,23 +18,23 @@ Screenshot di riferimento: [`../images/dashboard-verticale.jpg`](../images/dashb
 │  stato piastra      │  ┌────────────────────────────────────────┐  │
 │  margine / condensa │  │ TERMICA CRITICA   TEC · CPU · Rugiada  │  │
 │  CPU / pompa        │  └────────────────────────────────────────┘  │
-│  statistiche        │  Temp. TEC          · 18.62 °C              │
-│  controlli TEC      │  Punto di rugiada   · 14.95 °C              │
+│  statistiche        │  Temp. TEC          · 18,62 °C              │
+│  controlli TEC      │  Punto di rugiada   · 14,95 °C              │
 │  offset / budget    │  ┌────────────────────────────────────────┐  │
 │  PID P/I/D          │  │ ELETTRICA        Tensione · Corrente    │  │
 │  profili            │  └────────────────────────────────────────┘  │
-│  auto-tuning        │  Tensione TEC       · 5.97 V                │
-│  integrazioni       │  Corrente TEC       · 12.03 A               │
+│  auto-tuning        │  Tensione TEC       · 5,97 V                │
+│  integrazioni       │  Corrente TEC       · 12,03 A               │
 │  export             │  ┌────────────────────────────────────────┐  │
 │                     │  │ POTENZA         Potenza TEC · Duty      │  │
 │                     │  └────────────────────────────────────────┘  │
-│                     │  Potenza TEC        · 71.85 W               │
-│                     │  Livello potenza    · 53.00 %               │
+│                     │  Potenza TEC        · 71,85 W               │
+│                     │  Livello potenza    · 53,00 %               │
 │                     │  ┌────────────────────────────────────────┐  │
 │                     │  │ AMBIENTE        Umidità · Temp. scheda │  │
 │                     │  └────────────────────────────────────────┘  │
-│                     │  Umidità            · 41.50 %               │
-│                     │  Temp. scheda       · 29.39 °C              │
+│                     │  Umidità            · 41,50 %               │
+│                     │  Temp. scheda       · 29,39 °C              │
 │                     │  HWiNFO64 / AIDA64 (27 sensori)             │
 │                     │  griglia sensori CPU / scheda / memoria      │
 └─────────────────────┴──────────────────────────────────────────────┘
@@ -129,10 +129,10 @@ Sei valori, ognuno con la sua etichetta e la sua unità, e un badge `LIVE`:
 
 | Campo | Valore nello screenshot | Sotto |
 |---|---|---|
-| PIASTRA | 18.6 °C | margine +3.7 |
+| PIASTRA | 18,6 °C | margine +3,7 |
 | POTENZA | 72 W | budget 200 W |
-| CTRL | 29.4 °C | guardia 66 |
-| MARGINE | +3.7 °C | sicuro |
+| CTRL | 29,4 °C | guardia 66 |
+| MARGINE | +3,7 °C | sicuro |
 | OCP | OFF | nessun allarme |
 | FW | 13.A0 | hw rev 4 |
 
@@ -142,8 +142,8 @@ riferimento per non essere letto al contrario.
 
 ### Margine di condensa
 
-Il margine è `piastra - punto di rugiada`. La coppia letta nello screenshot è `18.6 °C` e
-`14.95 °C`, quindi margine `+3.7 °C`, marcato sicuro.
+Il margine è `piastra - punto di rugiada`. La coppia letta nello screenshot è `18,6 °C` e
+`14,95 °C`, quindi margine `+3,7 °C`, marcato sicuro.
 
 L'indicatore a gocce compare solo se l'ultima coppia di letture TEC e rugiada è valida,
 contemporanea, recente entro 5 secondi, e `TEC < rugiada`. Alla soglia esatta o sopra la soglia le
@@ -171,16 +171,16 @@ Riquadro con tre righe, min / medio / massimo, su tutta la sessione:
 
 | Canale | min | medio | max |
 |---|---|---|---|
-| TEC | 13.8 °C | 18.8 °C | 39.1 °C |
+| TEC | 13,8 °C | 18,8 °C | 39,1 °C |
 | Potenza | 0 W | 96 W | 270 W |
-| Margine | 0.8 °C | | |
+| Margine | 0,8 °C | | |
 
-Il **minimo del margine** è la cifra che conta: 0.8 °C significa che a un certo punto della
-sessione la piastra è arrivata a 0.8 °C dalla rugiada. Il verdetto live usa invece il **margine
-attuale**, perché un minimo storico che continua a colourare di verde una rilettura del momento
+Il **minimo del margine** è la cifra che conta: 0,8 °C significa che a un certo punto della
+sessione la piastra è arrivata a 0,8 °C dalla rugiada. Il verdetto live usa invece il **margine
+attuale**, perché un minimo storico che continua a colorare di verde una rilettura del momento
 è una rassicurazione falsa.
 
-Il **contatore di campioni** (78.217 nello screenshot) e la versione dell'applicazione (`r143`)
+Il **contatore di campioni** (78,217 nello screenshot) e la versione dell'applicazione (`r143`)
 stanno nella riga di stato in alto a sinistra, subito sotto la testata.
 
 ---
@@ -205,7 +205,7 @@ senza chiudere il pannello.
 ## 9. Vincoli dichiarati
 
 - La **fluidità percepita** resta da confermare con l'utente: le misure di carico GPU disponibili
-  sono 12.406 % di media su dieci campioni sulla build R11, e la verifica visiva della build
+  sono 12,406 % di media su dieci campioni sulla build R11, e la verifica visiva della build
   corrente non è stata eseguita.
 - La disposizione a due colonne è pensata per il verticale. In orizzontale la sidebar resta
   utilizzabile, ma non è il caso ottimale.

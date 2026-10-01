@@ -13,8 +13,8 @@
 ![Dashboard CryoCooling, layout per monitor verticali](docs/images/dashboard-verticale.jpg)
 
 *Screenshot reale: dashboard `r143` su controller **Intel Cryo Gen 1** (`HW 4`, `FW 13.A0`) con cella
-**EK-Quantum Delta² TEC V2** montata. 78.217 campioni, TEC a 18.6 °C, 71.85 W misurati, duty 53 %,
-margine di condensa +3.7 °C.*
+**EK-Quantum Delta² TEC V2** montata. 78.217 campioni, TEC a 18,6 °C, 71,85 W misurati, duty 53 %,
+margine di condensa +3,7 °C.*
 
 ---
 
@@ -31,9 +31,10 @@ margine di condensa +3.7 °C.*
 9. [Il protocollo in breve](#il-protocollo-in-breve)
 10. [Architettura](#architettura)
 11. [Sicurezza hardware](#sicurezza-hardware)
-12. [Compilazione](#compilazione)
-13. [Documentazione](#documentazione)
-14. [Crediti](#crediti)
+12. [Versione Linux in arrivo](#versione-linux-in-arrivo)
+13. [Compilazione](#compilazione)
+14. [Documentazione](#documentazione)
+15. [Crediti](#crediti)
 
 ---
 
@@ -177,7 +178,7 @@ Dettaglio completo dell'analisi: [`docs/reverse-engineering/cryo-gen1.md`](docs/
 | **Misure** | piastra, punto di rugiada, umidità, tensione, corrente, watt, duty, temperatura scheda, 14 bit di stato grezzi |
 | **Sensori** | HWiNFO64 shared memory **e** AIDA64, entrambi selezionabili a runtime; priorità ai sensori die/core |
 | **Grafici** | 8 grafici su asse temporale condiviso, interpolazione 1 s, cache geometria, ~30 fps, stop automatico in Home e nel tray |
-| **Profili** | 3 preset (Silenzioso 60 W / Gaming 120 W / AI 160 W) + profili personali, isteresi ±0.75 °C |
+| **Profili** | 3 preset (Silenzioso 60 W / Gaming 120 W / AI 160 W) + profili personali, isteresi ±0,75 °C |
 | **Test** | **314 test passanti** (294 applicazione + 20 libreria), verificati con `cargo test --workspace`; 5 test di integrazione intenzionalmente ignorati perché richiedono hardware collegato o scrivono sul database reale |
 | **Diagnostica** | 2 problemi reali, storico min/avg/max di sessione, COP **etichettato come stima**, log `tec-controller.log` |
 | **Dati** | export CSV su Desktop, auto-save CSV ogni 5 min, report PDF, storico sessioni SQLite |
@@ -205,9 +206,9 @@ pubblico, modificabile a runtime e persistito.
 | **Profilo** | nome, coefficiente P, coefficiente I, coefficiente D, setpoint, budget in watt | `config.rs`, struct `Profile` |
 | **Setpoint** | offset libero da **-30.0 a +50.0 °C** | `config.rs`, clamp sui profili personali |
 | **Preset** | 3 di fabbrica (Silenzioso, Gaming, AI / Rendering) più **profili personali** con nome libero | `config.rs`, `default_idle`, `default_gaming`, `default_ai_workload` |
-| **Margine di sicurezza** | 6.0 °C su Idle, 3.5 °C su Gaming, 3.0 °C su AI. Ogni profilo può avere il proprio | `config.rs`, `con_margine_sicuro()` |
+| **Margine di sicurezza** | 6,0 °C su Idle, 3,5 °C su Gaming, 3,0 °C su AI. Ogni profilo può avere il proprio | `config.rs`, `con_margine_sicuro()` |
 | **AutoProfiler** | `usa_carico`, `usa_temp`, `soglia_temp`, `soglia_carico`, `soglia_leggero` | `automanager.rs`, struct `Config` |
-| **Isteresi del regolatore** | ±0.75 °C, passo offset 0.5 °C, attesa 30 s per valutare, pausa 120 s dopo un aumento inutile | regolatore TEC |
+| **Isteresi del regolatore** | ±0,75 °C, passo offset 0,5 °C, attesa 30 s per valutare, pausa 120 s dopo un aumento inutile | regolatore TEC |
 | **Budget in watt** | percentuale 0 – 100, dove 100 % = 200 W. Modificabile durante la sessione | `running.rs` |
 | **Coefficienti PID** | P, I, D liberi. Il preset in uso è 100 / 1 / 0, già provato su questo hardware | `commutazione.rs`, `attore_tec.rs` |
 | **Regimi** | Cryo, Unregulated (offset -30), Standby (offset 3.5), Spento. Il regime corrente viene **confermato** dal controller | `commutazione.rs` |
@@ -232,8 +233,8 @@ Su questo hardware (controller Gen 1, cella TEC V2, misure in regime):
 
 | Regime | Tensione | Corrente | Potenza | Piastra | Rugiada | COP stimato |
 |---|---|---|---|---|---|---|
-| 86 % | 10.38 V | 21.70 A | **225 W** | 8.2 °C | 15.01 °C | **0.95** |
-| ~48 % | non rilevato | non rilevato | **112 W** | non rilevato | non rilevato | **1.70** |
+| 86 % | 10,38 V | 21,70 A | **225 W** | 8,2 °C | 15,01 °C | **0,95** |
+| ~48 % | non rilevato | non rilevato | **112 W** | non rilevato | non rilevato | **1,70** |
 
 **Metà watt per COP quasi doppio.** Il radiatore riceve molto meno calore. Questo è il risultato
 centrale del lavoro: *a parità di freddo, il punto di funzionamento più basso consuma meno e scalda meno*.
@@ -256,8 +257,8 @@ Il COP è limitato dal lato caldo. Con lato freddo a 5 °C:
 
 | Lato caldo | COP massimo (Carnot) |
 |---|---|
-| 40 °C | 0.79 |
-| 33 °C | **1.04** (+32 %) |
+| 40 °C | 0,79 |
+| 33 °C | **1,04** (+32 %) |
 
 Portare il lato caldo da 40 °C a 33 °C vale **+32 % di prestazione utile a parità di watt**: nessun
 algoritmo arriva lontano. È lavoro meccanico (flusso d'aria, radiatore pulito, isolamento).
@@ -403,6 +404,26 @@ Ogni modulo è un file Focused: 36 file `.rs`, **24.536 righe**, 26 dipendenze d
 - `0x18` ha polarità opposta al nome: `[0,0,0,0]` accende.
 
 Dettaglio: [`SECURITY.md`](SECURITY.md).
+
+---
+
+## Versione Linux in arrivo
+
+**Il port Linux è in sviluppo.** Non è rilasciato, e su questo repository non è ancora compilabile.
+
+| Stato | Dettaglio |
+|---|---|
+| Libreria protocollo | **portabile**: `cryo_cooler_controller_lib` non ha dipendenze di piattaforma e la CI la compila e la testa su `ubuntu-latest` a ogni push |
+| Applicazione | port in corso. I moduli già portati sono una parte di quelli Windows |
+| Packaging | `install.sh`, regola udev `99-stargate-cryo.rules` e voce desktop `stargate-cryo.desktop` sono già presenti nel crate, ma **non eseguibili finché il sorgente del port non sarà incluso** |
+| Permessi | la regola udev serve a dare accesso alla porta seriale senza root, indispensabile per l'installazione su Linux |
+| Distribuzioni previste | Ubuntu 22.04+ come primaria, Debian 12+ e Fedora 38+ come compatibili |
+
+Il port non può essere rilasciato prima di aver verificato che le protezioni termiche e
+anticondensa si comportino come su Windows: su Linux non c'è il vincolo del servizio Intel che
+occupa la porta COM, quindi il comportamento in caso di errore va rifatto da zero.
+
+Chi vuole seguirlo: le issue con l'etichetta `linux` sono il canale dedicato.
 
 ---
 
