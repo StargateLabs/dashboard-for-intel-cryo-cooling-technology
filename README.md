@@ -486,13 +486,32 @@ Tutto il lavoro è documentato, incluse le ipotesi **smentite**.
 | [`architecture/plans/`](docs/architecture/plans/) | i piani di lavoro che hanno prodotto le correzioni |
 | [`releases/`](docs/releases/) | una nota per ogni build verificata, da R1 a R13, con evidenze e limiti |
 | [`README-originale-upstream.md`](docs/README-originale-upstream.md) | il README del progetto originale, per confronto |
+| [`TRADEMARKS.md`](TRADEMARKS.md) | loghi dei produttori, uso nominativo, prodotti citati |
 
 ---
 
 ## Crediti
 
+<table>
+<tr>
+<td align="center"><img src="docs/images/logos/intel.svg" width="120" alt="Intel"></td>
+<td align="center"><img src="docs/images/logos/ek-symbol.png" width="72" alt="EK"></td>
+<td align="center"><img src="docs/images/logos/cm-logo_full.svg" width="150" alt="Cooler Master"></td>
+</tr>
+<tr>
+<td align="center">Intel Corporation</td>
+<td align="center">EK, marchio di LM TEK d.o.o.</td>
+<td align="center">Cooler Master</td>
+</tr>
+</table>
+
+I loghi sono **marchi registrati** dei rispettivi titolari, presenti per uso nominativo. Non sono
+coperti dalla licenza MIT e non implicano alcuna sponsorizzazione o approvazione. Condizioni
+dettagliate in [`TRADEMARKS.md`](TRADEMARKS.md).
+
 - **Progetto originale**: [juvgrfunex/cryo-cooler-controller](https://github.com/juvgrfunex/cryo-cooler-controller), MIT. Questo repository è un fork avanzato.
-- **Hardware**: controller Intel Cryo Cooling Technology Gen 1 · cella EK-Quantum Delta² TEC V2 (LGA1700).
+- **Hardware collaudato**: controller Intel Cryo Cooling Technology Gen 1 (`HW 4`, firmware `13.A0`) con cella EK-Quantum Delta² TEC V2 (LGA1700).
+- **Hardware compatibile, non collaudato qui**: CoolerMaster MasterLiquid ML360 SUB-ZERO · EK-QuantumX Delta TEC EVO. La compatibilità è quella dichiarata dal progetto originale.
 - **Documentazione consultata**: manuale EK Delta² (`EK-IM-3831109859612.pdf`) · referenza termoelettrica Ferrotec.
 - **Nessun binario proprietario Intel è incluso o ridistribuito** in questo repository.
 
