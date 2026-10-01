@@ -21,16 +21,19 @@ margine di condensa +3.7 °C.*
 ## Indice
 
 1. [Il problema](#il-problema)
-2. [La scoperta che cambia tutto](#la-scoperta-che-cambia-tutto)
-3. [Cosa fa la dashboard](#cosa-fa-la-dashboard)
-4. [Risultati misurati](#risultati-misurati)
-5. [Cosa NON fa e cosa NON è dimostrato](#cosa-non-fa-e-cosa-nonè-dimostrato)
-6. [Il protocollo in breve](#il-protocollo-in-breve)
-7. [Architettura](#architettura)
-8. [Sicurezza hardware](#sicurezza-hardware)
-9. [Compilazione](#compilazione)
-10. [Documentazione](#documentazione)
-11. [Crediti](#crediti)
+2. [Su quali CPU funziona](#su-quali-cpu-funziona)
+3. [Controller supportati](#controller-supportati)
+4. [La scoperta che cambia tutto](#la-scoperta-che-cambia-tutto)
+5. [Cosa fa la dashboard](#cosa-fa-la-dashboard)
+6. [Configurazione: tutto personalizzabile](#configurazione-tutto-personalizzabile)
+7. [Risultati misurati](#risultati-misurati)
+8. [Cosa NON fa e cosa NON è dimostrato](#cosa-non-fa-e-cosa-nonè-dimostrato)
+9. [Il protocollo in breve](#il-protocollo-in-breve)
+10. [Architettura](#architettura)
+11. [Sicurezza hardware](#sicurezza-hardware)
+12. [Compilazione](#compilazione)
+13. [Documentazione](#documentazione)
+14. [Crediti](#crediti)
 
 ---
 
@@ -56,6 +59,61 @@ perché quel software **non imposta la modalità di raffreddamento**, come si ve
 
 Questa dashboard fa il lavoro che serve davvero: regolazione del freddo, PID, potenza, temperature,
 margine di condensa, diagnostica e stato del controller. Su **qualsiasi CPU**.
+
+---
+
+## Su quali CPU funziona
+
+**La ragione tecnica è una sola: questa dashboard non legge mai il modello della CPU.**
+
+Non installa il pacchetto Intel, non esegue lo script WMI, non confronta nessuna stringa. Apre la
+porta seriale e parla il protocollo del controller. Non esiste un punto nel codice in cui il
+processore viene interrogato per decidere se l'applicazione può partire.
+
+| CPU | Perché funziona |
+|---|---|
+| **Intel 10ª, 11ª, 12ª generazione** | le uniche che il software ufficiale accetta, quindi il caso triviale |
+| **Intel 13ª e 14ª generazione** | il blocco del produttore non esiste più: qui non c'è allowlist |
+| **AMD** (AM4, AM5, LGA1700) | il controller TEC è indipendente dal vendor della CPU. Il punto debole sarebbe il PID, risolto sotto |
+| **Qualsiasi CPU che si riesca a modificare e montare il sistema** | ingegneria campione, microcode modificato, BIOS sbloccato, CPU con FUSE aperti: se il sistema parte e la cella TEC è montata, il controller non chiede chi sei |
+
+### Il punto debole sarebbe il PID, ed è risolto
+
+Il regolatore ha bisogno della temperatura della CPU per correggere il freddo. Il controller la
+riceve con l'opcode `0x19` (`setCpuTemp`), e su una CPU che il produttore non conosce non avrebbe
+una fonte valida.
+
+La dashboard la legge da **due sorgenti indipendenti dal vendor**, selezionabili a runtime:
+
+| Sorgente | Interfaccia | Note |
+|---|---|---|
+| **HWiNFO64** | shared memory `Global\HWiNFO_SENS_SM2` | da abilitare in *Settings → General → Shared Memory Support* |
+| **AIDA64** | shared memory `Global\AIDA64_SensorValues`, formato XML | 27 sensori nello screenshot di riferimento |
+
+Entrambe funzionano su Intel **e** su AMD, quindi il PID riceve la temperatura reale su qualsiasi
+processore. A parità di priorità viene scelto il **sensore più caldo**, e i sensori **die/core**
+hanno la precedenza sulla lettura generica della CPU: con la CPU che scaldava il TEC, la media dei
+core dice meno del core hotter.
+
+**Senza HWiNFO né AIDA64** il ciclo funziona comunque, ma il controller usa il suo **sensore NTC
+interno** e regola sulla temperatura della piastra invece che su quella della CPU. Il
+funzionamento è corretto, la risposta al carico è più lenta.
+
+---
+
+## Controller supportati
+
+| Configurazione | Stato |
+|---|---|
+| **Controller Intel Cryo Gen 1** (`HW 4`, firmware `13.A0`) | **collaudato** su tutto il percorso R1 → R13 |
+| **Cella TEC Gen 2 montata su controller Gen 1** | **collaudata**: è la combinazione usata in questo progetto, riportata in testata come `Gen 1 / TEC 2 attive` |
+| **Controller Intel Cryo Gen 2** | non collaudato qui. Stesso protocollo e stessi 21 opcode, ma **le costanti di potenza vanno rimisurate**: il Gen 2 regge più corrente e i valori copiati dal Gen 1 non valgono |
+
+Il Gen 1 eroga in modo misurato **220 / 230 / 237 W** con raffreddamento regolare, ben oltre
+l'etichetta "200 W" del kit. Sul Gen 2 quel numero non è trasferibile.
+
+Sul lato software non c'è distinzione tra Gen 1 e Gen 2: gli opcode sono gli stessi e la
+differenza è nel firmware, non nel protocollo.
 
 ---
 
@@ -134,6 +192,37 @@ Progettato per **1080×1920 e simili**: sidebar fissa a sinistra (≈26 %) con s
 PID, profili e integrazioni; colonna destra fluida con 8 grafici impilati su **asse temporale condiviso**
 e pannello sensori a 27 canali in basso. Card scure traslucide sopra un'immagine full-bleed,
 separazione 8 px, badge `CRYOGENIC HAZARD` sempre visibile in testata.
+
+---
+
+## Configurazione: tutto personalizzabile
+
+Nessun parametro di gestione TEC è fissato nel codice. Ogni valore elencato qui è un campo
+pubblico, modificabile a runtime e persistito.
+
+| Livello | Parametri configurabili | Sorgente |
+|---|---|---|
+| **Profilo** | nome, coefficiente P, coefficiente I, coefficiente D, setpoint, budget in watt | `config.rs`, struct `Profile` |
+| **Setpoint** | offset libero da **-30.0 a +50.0 °C** | `config.rs`, clamp sui profili personali |
+| **Preset** | 3 di fabbrica (Silenzioso, Gaming, AI / Rendering) più **profili personali** con nome libero | `config.rs`, `default_idle`, `default_gaming`, `default_ai_workload` |
+| **Margine di sicurezza** | 6.0 °C su Idle, 3.5 °C su Gaming, 3.0 °C su AI. Ogni profilo può avere il proprio | `config.rs`, `con_margine_sicuro()` |
+| **AutoProfiler** | `usa_carico`, `usa_temp`, `soglia_temp`, `soglia_carico`, `soglia_leggero` | `automanager.rs`, struct `Config` |
+| **Isteresi del regolatore** | ±0.75 °C, passo offset 0.5 °C, attesa 30 s per valutare, pausa 120 s dopo un aumento inutile | regolatore TEC |
+| **Budget in watt** | percentuale 0 – 100, dove 100 % = 200 W. Modificabile durante la sessione | `running.rs` |
+| **Coefficienti PID** | P, I, D liberi. Il preset in uso è 100 / 1 / 0, già provato su questo hardware | `commutazione.rs`, `attore_tec.rs` |
+| **Regimi** | Cryo, Unregulated (offset -30), Standby (offset 3.5), Spento. Il regime corrente viene **confermato** dal controller | `commutazione.rs` |
+| **PID Auto-Tuning** | wizard guidato che misura la risposta del controller e propone i guadagni, con verifica seriale | `pid_wizard.rs` |
+| **Regole di allarme** | canale, condizione, etichetta, stato di attivazione, cooldown in secondi | `alerts.rs`, struct `AlertRule` |
+| **Notifiche** | toast Windows, banner in-app, log su disco | `config.rs`, struct `NotifySettings` |
+| **Sorgente sensori** | HWiNFO64 oppure AIDA64, selezionabile a runtime | `hwinfo.rs`, `SensorSource` |
+
+I profili vivono in `%APPDATA%\StargateLabsCryo\config.json` e vengono salvati e ricaricati senza
+perdita. I tre preset hanno nomi riservati: al caricamento vengono applicati i valori nuovi anche se
+la configurazione contiene la versione precedente, mentre i profili personali con nomi diversi
+conservano il proprio offset.
+
+Il regolatore agisce **solo in Cryo**. Unregulated resta una scelta manuale con rischio di condensa
+dichiarato, e caricare un profilo non la riattiva da sola.
 
 ---
 
