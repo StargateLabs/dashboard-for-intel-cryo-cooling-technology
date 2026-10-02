@@ -33,7 +33,7 @@ reqwest = { version = "0.11", default-features = false, features = ["json", "rus
 # Dipendenza diretta per forzare time >= 0.3.36 (fix bug E0282 in 0.3.31)
 time = { version = ">=0.3.36" }
 rusqlite = { version = "0.31", features = ["bundled"] }
-printpdf = "0.7"
+printpdf = "0.12"
 dirs = "7"
 
 [build-dependencies]
