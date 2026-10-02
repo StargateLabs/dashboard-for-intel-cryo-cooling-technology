@@ -412,7 +412,7 @@ o un PID. L'unica sorgente di comandi è il regime selezionato, e ogni sequenza 
 `GetBoardStatus()` di conferma: se il controller non conferma, l'interfaccia dice **"non commutato"**,
 non "fatto".
 
-Ogni modulo è un file Focused: 38 file `.rs`, **24.536 righe**, 26 dipendenze dirette nell'app.
+Ogni modulo è un file Focused: 38 file `.rs`, **24.536 righe**, 23 dipendenze dirette (20 runtime, 1 in build, 2 solo Windows).
 
 ---
 
