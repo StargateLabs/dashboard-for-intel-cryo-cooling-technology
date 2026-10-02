@@ -16,6 +16,22 @@ Non sono coperti dalla licenza MIT di questo repository.
 | `ek-symbol.png` | EK | LM TEK d.o.o. | `transparency.ekwb.com`, asset pubblicato con riferimento Pantone Cool Grey 5C |
 | `cm-logo_full.svg` | Cooler Master | Cooler Master | sprite SVG dal CDN del proprio sito, `coolermaster.com` |
 
+## Immagini dei prodotti
+
+Anche le immagini dei prodotti sono proprietà dei rispettivi titolari e ricadono nelle stesse
+condizioni d'uso.
+
+| File | Prodotto | Titolare |
+|---|---|---|
+| `docs/images/hardware/ek-delta2-tec.png` | EK-Quantum Delta² TEC D-RGB | EK, marchio di LM TEK d.o.o. |
+| `docs/images/hardware/ek-delta-tec.png` | EK-QuantumX Delta TEC EVO | EK, marchio di LM TEK d.o.o. |
+| `docs/images/hardware/coolermaster-ml360-subzero.png` | MasterLiquid ML360 SUB-ZERO EVO | Cooler Master |
+| `docs/images/dashboard-verticale.jpg` | schermata della dashboard | Stargate Labs, cattura dello schermo |
+
+Le ultime tre immagini sono state fornite dal proprietario del progetto e sono copie byte per byte
+dei file originali: nessuna ritaglio, nessun ridimensionamento, nessuna modifica a forma, colore
+o testo. La verifica è il confronto degli SHA256 fra il file ricevuto e quello pubblicato.
+
 ---
 
 ## Condizioni d'uso
@@ -36,9 +52,10 @@ Le richieste di autorizzazione all'uso vanno indirizzate ai titolari del rispett
 | Prodotto | Produttore |
 |---|---|
 | Intel Cryo Cooling Technology, controller Gen 1 e Gen 2 | Intel Corporation |
-| EK-Quantum Delta² TEC V2 | EK, marchio di LM TEK d.o.o. |
+| EK-Quantum Delta² TEC D-RGB | EK, marchio di LM TEK d.o.o. |
 | EK-QuantumX Delta TEC EVO | EK, marchio di LM TEK d.o.o. |
-| CoolerMaster MasterLiquid ML360 SUB-ZERO | Cooler Master |
+| MasterLiquid ML360 SUB-ZERO | Cooler Master |
+| MasterLiquid ML360 SUB-ZERO EVO | Cooler Master |
 | Silicon Labs CP210x | Silicon Laboratories |
 
 I nomi dei prodotti e dei modelli sono usati per identificare il dispositivo. Le specifiche tecniche

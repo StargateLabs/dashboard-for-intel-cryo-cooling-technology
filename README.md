@@ -116,6 +116,47 @@ l'etichetta "200 W" del kit. Sul Gen 2 quel numero non è trasferibile.
 Sul lato software non c'è distinzione tra Gen 1 e Gen 2: gli opcode sono gli stessi e la
 differenza è nel firmware, non nel protocollo.
 
+### Le celle supportate
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="docs/images/hardware/ek-delta2-tec.png" alt="EK-Quantum Delta² TEC D-RGB"></td>
+<td align="center" width="33%"><img src="docs/images/hardware/ek-delta-tec.png" alt="EK-QuantumX Delta TEC EVO"></td>
+<td align="center" width="33%"><img src="docs/images/hardware/coolermaster-ml360-subzero.png" alt="CoolerMaster MasterLiquid ML360 SUB-ZERO EVO"></td>
+</tr>
+<tr>
+<td align="center"><strong>EK-Quantum Delta² TEC D-RGB</strong><br>EK &middot; Delta TEC 2</td>
+<td align="center"><strong>EK-QuantumX Delta TEC EVO</strong><br>EK &middot; Delta TEC 1</td>
+<td align="center"><strong>MasterLiquid ML360 SUB-ZERO EVO</strong><br>Cooler Master &middot; 360 mm</td>
+</tr>
+<tr>
+<td align="center">**Collaudata** su questo controller<br>LGA1700</td>
+<td align="center">Compatibile<br>non collaudata qui</td>
+<td align="center">Compatibile<br>non collaudata qui</td>
+</tr>
+</table>
+
+La **Delta² TEC D-RGB** è la cella usata in tutto il collaudo R1 → R13: le misure di questo
+documento, il carico di 225 W a COP stimato 0,95 e la stabilizzazione a 112 W a COP 1,70 vengono
+tutti da lì.
+
+Il protocollo non cambia da una cella all'altra: cambiano i **limiti elettrici**, che vanno
+rimisurati su ogni combinazione. I valori di corrente e potenza della Delta² non sono
+trasferibili a un'altra cella, e il documento sull'ottimizzazione dice esplicitamente cosa fare
+prima di fidarsi.
+
+Le immagini sono rendering ufficiali dei produttori, usati per uso nominativo. Condizioni in
+[`TRADEMARKS.md`](TRADEMARKS.md).
+
+### Lista completa dei cooler supportati
+
+| Cooler | Produttore | Stato qui |
+|---|---|---|
+| **EK-Quantum Delta² TEC D-RGB** | EK | **collaudato**, LGA1700 |
+| **EK-QuantumX Delta TEC EVO** | EK | compatibile |
+| **MasterLiquid ML360 SUB-ZERO** | Cooler Master | compatibile |
+| **MasterLiquid ML360 SUB-ZERO EVO** | Cooler Master | compatibile |
+
 ---
 
 ## La scoperta che cambia tutto
@@ -510,8 +551,8 @@ coperti dalla licenza MIT e non implicano alcuna sponsorizzazione o approvazione
 dettagliate in [`TRADEMARKS.md`](TRADEMARKS.md).
 
 - **Progetto originale**: [juvgrfunex/cryo-cooler-controller](https://github.com/juvgrfunex/cryo-cooler-controller), MIT. Questo repository è un fork avanzato.
-- **Hardware collaudato**: controller Intel Cryo Cooling Technology Gen 1 (`HW 4`, firmware `13.A0`) con cella EK-Quantum Delta² TEC V2 (LGA1700).
-- **Hardware compatibile, non collaudato qui**: CoolerMaster MasterLiquid ML360 SUB-ZERO · EK-QuantumX Delta TEC EVO. La compatibilità è quella dichiarata dal progetto originale.
+- **Hardware collaudato**: controller Intel Cryo Cooling Technology Gen 1 (`HW 4`, firmware `13.A0`) con cella EK-Quantum Delta² TEC D-RGB (LGA1700).
+- **Hardware compatibile, non collaudato qui**: EK-QuantumX Delta TEC EVO · MasterLiquid ML360 SUB-ZERO · MasterLiquid ML360 SUB-ZERO EVO.
 - **Documentazione consultata**: manuale EK Delta² (`EK-IM-3831109859612.pdf`) · referenza termoelettrica Ferrotec.
 - **Nessun binario proprietario Intel è incluso o ridistribuito** in questo repository.
 
