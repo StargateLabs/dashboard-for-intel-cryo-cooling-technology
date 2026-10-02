@@ -124,7 +124,7 @@ pub enum Risposta {
     Campione(Result<(MonitoringData, StatusCompleto), String>),
     /// `Ok(quello)` = il firmware ha confermato quell'azione.
     Ack(Result<Scritto, String>),
-    ErroreRegime(String),
+    ErroreRegime {offset:Option<f32>,error:String},
 }
 
 /// L'azione che il firmware ha confermato.
@@ -137,8 +137,33 @@ pub enum Scritto {
     /// La commutazione e' stata eseguita e il controller ha risposto. Il
     /// valore e' lo **stato rilettato dopo** la scrittura: la UI verifica
     /// qui che il regime sia quello richiesto invece di darlo per scontato.
-    Regime(StatusCompleto),
+    Regime(StatusCompleto, Option<f32>),
     Spegnimento(StatusCompleto),
+}
+
+impl Scritto {
+    pub fn matches_mode(&self,enabled:bool,offset:Option<f32>)->bool {
+        match self {
+            Self::Spegnimento(_)=>!enabled,
+            Self::Regime(_,actual)=>enabled && match (offset,*actual) {
+                (Some(wanted),Some(actual))=>(wanted-actual).abs()<=0.05,
+                (None,None)=>true,
+                _=>false,
+            },
+            _=>false,
+        }
+    }
+}
+
+fn accoda(coda:&mut std::collections::VecDeque<Richiesta>,r:Richiesta) {
+    if matches!(r,Richiesta::Regime {..}) {
+        // A new mode supersedes pending mode/power/offset updates.
+        coda.retain(|old|!matches!(old,Richiesta::Regime {..}|Richiesta::Setpoint(_)|Richiesta::Potenza(_)));
+    } else {
+        let kind=std::mem::discriminant(&r);
+        coda.retain(|old|std::mem::discriminant(old)!=kind);
+    }
+    coda.push_back(r);
 }
 
 /// Esegue una richiesta sul TEC. Separata dal ciclo perche' la stessa logica
@@ -172,6 +197,15 @@ fn esegui(tec: &mut cryo_cooler_controller_lib::Tec, r: Richiesta) -> Risposta {
                 .map_err(|e| e.to_string()))
         }
         Richiesta::Regime { offset, tec_acceso, pid, prima_spegni } => {
+            if tec_acceso {
+                match tec.board_temperature() {
+                    Ok(board) if cryo_cooler_controller_lib::board_allows_enable(board)=>{},
+                    result=> {
+                        let disabled=tec.disable();
+                        return Risposta::ErroreRegime {offset,error:format!("Abilitazione bloccata: temperatura PCB non sicura {result:?}; disable={disabled:?}")};
+                    }
+                }
+            }
             crate::commissioning::event("SERIALE-REGIME", &format!("acceso={tec_acceso} offset={offset:?} disable_prima={prima_spegni}"));
             // `applica_regime_con_pid` scrive offset, **PID**, enable e potenza
             // in quest'ordine: e' la sequenza dell'originale, e senza i
@@ -191,14 +225,14 @@ fn esegui(tec: &mut cryo_cooler_controller_lib::Tec, r: Richiesta) -> Risposta {
                                 other => {
                                     let error=format!("Offset non verificato: richiesto {expected:.2}, risposta {other:?}");
                                     let disabled=tec.disable();
-                                    return Risposta::ErroreRegime(format!("{error}; disable={disabled:?}"));
+                                    return Risposta::ErroreRegime {offset,error:format!("{error}; disable={disabled:?}")};
                                 }
                             }
                         }
                     }
-                    Risposta::Ack(Ok(if tec_acceso { Scritto::Regime(st) } else { Scritto::Spegnimento(st) }))
+                    Risposta::Ack(Ok(if tec_acceso { Scritto::Regime(st,offset) } else { Scritto::Spegnimento(st) }))
                 },
-                Err(e) => Risposta::ErroreRegime(e.to_string()),
+                Err(e) => Risposta::ErroreRegime {offset,error:e.to_string()},
             }
         }
     }
@@ -212,6 +246,9 @@ fn prossima_richiesta(
     coda: &mut std::collections::VecDeque<Richiesta>,
     attesa: &Receiver<Richiesta>,
 ) -> Option<Richiesta> {
+    // Stop before other writes, then mode changes before telemetry updates.
+    if let Some(i)=coda.iter().position(|r| matches!(r,Richiesta::Regime {tec_acceso:false,..})) {return coda.remove(i);}
+    if let Some(i)=coda.iter().position(|r| matches!(r,Richiesta::Regime {..})) {return coda.remove(i);}
     // 1) Una scrittura gia' in coda ha la precedenza assoluta.
     if let Some(i) = coda.iter().position(|r| r.e_scrittura()) {
         return coda.remove(i);
@@ -242,11 +279,11 @@ pub fn ciclo_attore(
         // letture da scritture.
         match richieste.try_recv() {
             Ok(r) => {
-                coda.push_back(r);
+                accoda(&mut coda,r);
                 // Drena tutto il disponibile, cosi' la prossima scrittura in
                 // coda viene vista subito e non dopo un round di lettura.
                 while let Ok(r2) = richieste.try_recv() {
-                    coda.push_back(r2);
+                    accoda(&mut coda,r2);
                 }
             }
             Err(TryRecvError::Disconnected) if coda.is_empty() => break,
@@ -276,6 +313,22 @@ mod tests {
     use super::*;
     use std::collections::VecDeque;
     use std::sync::mpsc;
+    #[test] fn rapid_updates_stay_bounded_and_stop_precedes_telemetry() {
+        let mut q=VecDeque::new();
+        for n in 0..1000 {accoda(&mut q,Richiesta::TempCpu(n as f32));accoda(&mut q,Richiesta::Setpoint(2.0));accoda(&mut q,Richiesta::Campione);}
+        assert_eq!(q.len(),3);
+        accoda(&mut q,Richiesta::spegnimento());
+        let (_tx,rx)=mpsc::channel();
+        assert!(matches!(prossima_richiesta(&mut q,&rx),Some(Richiesta::Regime {tec_acceso:false,..})));
+        assert!(!q.iter().any(|r|matches!(r,Richiesta::Setpoint(_))));
+    }
+    #[test] fn cryo_ack_cannot_confirm_a_later_unregulated_request() {
+        let st=StatusCompleto {noti:cryo_cooler_controller_lib::TecStatus::POWER_OK,bit_alternativi:0};
+        let cryo=Scritto::Regime(st,Some(2.0));
+        assert!(cryo.matches_mode(true,Some(2.0)));
+        assert!(!cryo.matches_mode(true,Some(-30.0)));
+        assert!(!cryo.matches_mode(false,None));
+    }
 
     fn canale() -> (Sender<Richiesta>, Receiver<Richiesta>) {
         mpsc::channel()
@@ -426,10 +479,10 @@ mod test_spegnimento {
             cryo_cooler_controller_lib::tecstatus::StatusCompleto {
                 noti: cryo_cooler_controller_lib::TecStatus::POWER_OK,
                 bit_alternativi: 0,
-            },
+            }, Some(2.0),
         );
         assert!(
-            matches!(s, Scritto::Regime(_)),
+            matches!(s, Scritto::Regime(_, _)),
             "l'ack deve portare lo stato, non un semplice 'fatto'"
         );
     }

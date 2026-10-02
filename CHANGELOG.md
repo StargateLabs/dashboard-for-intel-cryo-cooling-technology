@@ -1,11 +1,219 @@
 # Changelog
 
-Tutte le build elencate sono **verificate e collaudate**. Ogni nota indica
-esplicitamente cosa **non** è stato dimostrato.
+Ogni voce dichiara esplicitamente cosa **non** è stato dimostrato.
 
-Il versioning R1–R13 copre la serie di collaudo su hardware reale
-(controller Intel Cryo Gen 1 `HW 4`, firmware `13.A0`, cella TEC V2).
-La serie `rNN` più bassa corrisponde alle build di sviluppo giornaliere.
+Il versioning è diviso in due serie:
+
+| Serie | Periodo | Scopo |
+|---|---|---|
+| `r81` → `r147` | 28–30 settembre 2026 | sviluppo giornaliero sul controller Intel Cryo Gen 1, senza celle TEC |
+| `R1` → `R15` | 30 settembre – 2 ottobre 2026 | collaudo su hardware reale con cella TEC montata |
+
+I numeri di versione pubblicati su GitHub (`v2.5`, `v2.6`, `v2.7`) corrispondono alle release
+R13, R14 e R15.
+
+---
+
+## Linea evolutiva
+
+| Data | Build | Intervento |
+|---|---|---|
+| 28/09 00:29 | `r81` | riferimento di partenza, conservato come backup funzionante |
+| 28–30/09 | `r113` → `r147` | 31 build giornaliere, tutti della stessa base. Le variazioni principali sono nella serie R |
+| 30/09 06:03 | `TEC-20260930` | primo avvio con cella TEC montata |
+| 30/09 06:21 | `GEN1-TEC2` | prima build del binario attuale |
+| 30/09 06:24 | `FINALE` | |
+| 30/09 06:33 | `FINALE-R2` | |
+| 30/09 06:45 | `PROFILI-R3` | tre profili di carico |
+| 30/09 06:56 | `GRAFICA-R4` | grafici, animazione a 30 fps |
+| 30/09 07:09 | `GOCCE-R5` | indicatore di condensa |
+| 30/09 07:16 | `DESIGN-R6` | superfici e contrasto |
+| 30/09 07:42 | `R7-TERMICA-CANDIDATA` | correzioni termiche e ordine dei comandi |
+| 30/09 07:56 | `R8` | diagnostica live |
+| 30/09 08:05 | `R9` | prima misura del carico GPU |
+| 30/09 08:13–08:23 | `R10`, `R11` | riduzione del carico GPU |
+| 30/09 08:32 | `R12` | pulsante TEC |
+| 30/09 15:14 | `R13` | continuità del controllo, supervisore di riavvio |
+| 02/10 16:46 | `R14` | recupero della connessione dopo perdita di heartbeat |
+| 02/10 17:10 | `R15` | soglie termiche dell'impianto e coda seriale |
+
+Le date sono quelle dei file in `build-verificata`. Le build senza nota di collaudo non hanno
+descrizione del contenuto: il nome del file è l'unico dato disponibile.
+
+### Versione di riferimento
+
+Le note di R14 e R15 indicano come versione di riferimento
+`04495C1701434E96D927F2EE42A34A6F996E6F6B1F2E8C7CDE3D54B7D240F71E`, del 29 settembre 2026.
+Corrisponde al file `cryo_cooler_controller_r116.exe`.
+
+---
+
+## Release pubblicate
+
+| Tag | Build | Data dell'eseguibile | SHA256 |
+|---|---|---|---|
+| [`v2.7`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v2.7) | R15 | 02/10 17:10 | `1d6497af…70b481` |
+| [`v2.6`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v2.6) | R14 | 02/10 16:46 | `d3969a6d…025388` |
+| [`v2.5`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v2.5) | R13 | 30/09 15:14 | `3f9460cd…fe0b84` |
+
+Solo R13, R14 e R15 sono pubblicati su GitHub. Tutte le build precedenti restano in locale e
+non hanno una release corrispondente.
+
+---
+
+## r81 – r147: sviluppo giornaliero senza cella TEC (28–30 settembre 2026)
+
+Prima della serie R. Trentuno build giornaliere sul controller Intel Cryo Gen 1 `HW 4`,
+firmware `13.A0`, senza cella TEC montata.
+
+| Build | Data | Byte |
+|---|---|---|
+| `r81` | 28/09 00:29 | 24.812.544 |
+| `r113` | 29/09 00:38 | 25.318.400 |
+| `r115` | 29/09 03:07 | 25.334.784 |
+| `r116` | 29/09 03:43 | 25.336.320 |
+| `r117` – `r132` | 29/09 18:12 – 30/09 00:05 | 25.267.224 – 25.337.536 |
+| `r133` – `r147` | 30/09 00:05 – 05:47 | 25.325.568 – 25.337.536 |
+
+`r81` è conservata come backup funzionante ed è il riferimento da cui parte il lavoro sulla
+cella TEC. `r116` è la versione usata come riferimento nelle note di R14 e R15.
+
+**Non dimostrato:** per questa serie non esiste una nota di collaudo. Le date e le dimensioni
+sono quelle dei file, ma non c'è un resoconto delle modifiche né una misura di stabilità
+per singola build.
+
+---
+
+## Le prime build con cella TEC (30 settembre 2026)
+
+La cella TEC V2 viene montata sul controller. Queste quattro build non hanno una nota di
+collaudo: esistono come file e come data.
+
+| Build | Data | Byte | Nome |
+|---|---|---|---|
+| 1 | 06:03 | 25.330.176 | `StargateCryo-TEC-20260930.exe` |
+| 2 | 06:21 | 25.335.296 | `StargateCryo-GEN1-TEC2.exe` |
+| 3 | 06:24 | 25.335.808 | `StargateCryo-GEN1-TEC2-FINALE.exe` |
+| 4 | 06:33 | 25.334.272 | `StargateCryo-GEN1-TEC2-FINALE-R2.exe` |
+
+**Non dimostrato:** nessuna di queste quattro build ha una nota che descriva le modifiche o i
+test eseguiti. La numerazione parte dalla build 5, `PROFILI-R3`, che è la prima con
+documentazione.
+
+---
+
+## R15: Soglie termiche dell'impianto e coda seriale
+
+→ nota completa in [`docs/releases/R15-soglie-impianto.md`](docs/releases/R15-soglie-impianto.md)
+
+Soglie per l'impianto modificato: abilitazione consentita sotto 37 °C di PCB, bloccata a 37 °C,
+richiesta di DISABLE reale a 38 °C con priorità nella coda seriale. Sensori `NaN`, infiniti e fuori
+intervallo rifiutati prima del controllo. Conferme di Cryo e Unregulated abbinate all'offset
+richiesto. Offset -30..50 °C, PID 0..1000, percentuale 0..100.
+
+320 test superati: 297 applicazione e 23 libreria. Cinque prove che toccano hardware o database
+reale restano escluse.
+
+Le soglie sono scelte per questo impianto e non sono certificazioni del costruttore.
+
+---
+
+## R14: Recupero della connessione dopo perdita di heartbeat
+
+→ nota completa in [`docs/releases/R14-recupero-uscita.md`](docs/releases/R14-recupero-uscita.md)
+
+Dopo tre round falliti un unico recupero riporta alla schermata di connessione, tenta lo
+spegnimento con attesa limitata, rilascia la vecchia porta seriale e ripete il rilevamento USB.
+Una sola scansione per volta, con pausa di 2 secondi e massimo 20 tentativi. L'errore riporta
+opcode e causa originale. Nessun reset di fabbrica `0x1E` automatico.
+
+315 test superati: 295 applicazione e 20 libreria.
+
+Il recupero su controller fisico dopo una vera perdita di alimentazione non è stato provato.
+
+---
+
+## Basi di libreria per R14 e R15
+
+Questo lavoro di rifatturizzazione **non ha un numero di release proprio**: è stato applicato
+fra la costruzione di R14 e quella di R15.
+
+| Ora del 02/10 | Evento |
+|---|---|
+| 16:44 | modifica di `main.rs` |
+| 16:46 | **build di R14** |
+| 16:54 | modifica di `recovery.rs` |
+| 16:59 | modifica di `attore_tec.rs` |
+| 17:08 | modifica di `running.rs` e `lib.rs` |
+| 17:10 | **build di R15** |
+
+**R14 non contiene questo lavoro**: quando è stato compilato, tre dei cinque file non erano
+ancora stati modificati. **R15 lo contiene interamente**, perché è stato compilato dopo
+l'ultima modifica.
+
+**320 test passati** (297 applicazione, 23 libreria), 0 falliti, 5 ignorati. Build release
+completata senza errori.
+
+### Soglie sul controller
+
+Due soglie esplicite nella libreria, al posto dei valori sparsi nel codice applicativo:
+
+| Costante | Valore | Significato |
+|---|---|---|
+| `BOARD_REENABLE_TEMP` | 37,0 °C | sopra questa temperatura il TEC **non può essere acceso** |
+| `CRITICAL_BOARD_TEMP` | 38,0 °C | a questa temperatura il TEC viene **spento** |
+
+Entrambe accettano il sensore come unico criterio, ma il codice distingue due casi diversi:
+
+- `board_allows_enable(board)` blocca l'accensione se la temperatura è sopra soglia **oppure**
+  se il sensore non dà un numero finito. Una lettura `NaN`, infinita o fuori scala impedisce
+  l'avvio, perché non è distinguibile da una temperatura pericolosa.
+- `critical_board_shutdown(board)` spegne il modulo a 38 °C. È l'unico caso in cui il programma
+  **spegge da solo** senza aspettare una conferma dell'operatore.
+
+Il commento nel codice ricorda che 38 °C è un **limite di installazione configurato**, non una
+classificazione del produttore valida per altri controller.
+
+### Salute della telemetria
+
+`telemetry_healthy()` richiede due condizioni insieme: nessun fallimento di monitoraggio
+accumulato **e** un campione valido ricevuto meno di 3 secondi fa. È il segnale che il watchdog
+usa per capire se i dati che sta proteggendo sono ancora freschi.
+
+### Connessione non piu` parallela
+
+Le richieste di rilevamento della porta non avviano piu' scansioni in contemporanea:
+`AUTO_CONNECT_MAX_TRIES` limita i tentativi a 20, le richieste entrano in una coda e il
+lavoro ha un timeout di 300 ms. Il test `repeated_detection_requests_do_not_start_parallel_scans`
+copre il caso.
+
+### Validazione degli ingressi
+
+`validate_finite` e `validate_offset` rifiutano `NaN` e infinito prima che raggiungano il
+controller. Un offset non finito arriverebbe al protocollo come un `float32` senza significato.
+
+### Stato della richiesta esplicito
+
+`cooling_requested()` e `matches_mode()` espongono come **intenzione registrata** ciò che
+l'operatore ha chiesto, separato dallo stato che il controller ha confermato. La dashboard
+continua a non mostrare un regime dedotto come se fosse un fatto.
+
+### Riduzione di codice
+
+Cinque file toccati, **275 righe aggiunte e 413 rimosse**: 138 righe in meno di netto. La riduzione
+concentrata in `running.rs`, dove le soglie termiche passano da logica sparsa a chiamate a
+funzioni testabili. Le nuove funzioni hanno test dedicati, quindi la logica che prima era
+verificata solo a mano è ora coperta dalla suite.
+
+### Non dimostrato
+
+- Le soglie 37 °C e 38 °C sono **scelte per questa installazione**, non valori del produttore.
+  Non sono confrontate con un riferimento termico esterno.
+- `telemetry_healthy()` non è stata verificata con il controller realmente scollegato: il
+  comportamento è provato da test che simulano l'assenza di campioni, non da un'interruzione
+  fisica del collegamento.
+- La coda di connessione non è stata provata sotto carico con porte che spariscono e
+  ricompaiono.
 
 ---
 

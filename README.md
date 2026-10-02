@@ -7,7 +7,7 @@
 [![Language: Rust](https://img.shields.io/badge/Rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
 [![GUI: iced](https://img.shields.io/badge/GUI-iced%200.13-5c8dff.svg)](https://iced.rs)
 [![Reverse Engineering](https://img.shields.io/badge/reverse%20engineering-documented-ff00a0.svg)](docs/reverse-engineering/cryo-gen1.md)
-[![Test: 314](https://img.shields.io/badge/tests-314%20passing-00FF41.svg)](#compilazione)
+[![Test: 320](https://img.shields.io/badge/tests-320%20passing-00FF41.svg)](#compilazione)
 [![Binari Intel](https://img.shields.io/badge/binari%20Intel-non%20ridistribuiti-00d26a.svg)](SECURITY.md)
 
 ![Dashboard CryoCooling, layout per monitor verticali](docs/images/dashboard-verticale.jpg)
@@ -23,9 +23,9 @@ margine di condensa +3,7 °C.*
 1. [Il problema](#il-problema)
 2. [Su quali CPU funziona](#su-quali-cpu-funziona)
 3. [Controller supportati](#controller-supportati)
-4. [La scoperta che cambia tutto](#la-scoperta-che-cambia-tutto)
+4. [La modalita non e un comando seriale](#la-modalita-non-e-un-comando-seriale)
 5. [Cosa fa la dashboard](#cosa-fa-la-dashboard)
-6. [Configurazione: tutto personalizzabile](#configurazione-tutto-personalizzabile)
+6. [Configurazione](#configurazione)
 7. [Risultati misurati](#risultati-misurati)
 8. [Cosa NON fa e cosa NON è dimostrato](#cosa-non-fa-e-cosa-nonè-dimostrato)
 9. [Il protocollo in breve](#il-protocollo-in-breve)
@@ -78,7 +78,7 @@ processore viene interrogato per decidere se l'applicazione può partire.
 | **AMD** (AM4, AM5, LGA1700) | il controller TEC è indipendente dal vendor della CPU. Il punto debole sarebbe il PID, risolto sotto |
 | **Qualsiasi CPU che si riesca a modificare e montare il sistema** | ingegneria campione, microcode modificato, BIOS sbloccato, CPU con FUSE aperti: se il sistema parte e la cella TEC è montata, il controller non chiede chi sei |
 
-### Il punto debole sarebbe il PID, ed è risolto
+### La temperatura della CPU nel PID
 
 Il regolatore ha bisogno della temperatura della CPU per correggere il freddo. Il controller la
 riceve con l'opcode `0x19` (`setCpuTemp`), e su una CPU che il produttore non conosce non avrebbe
@@ -91,7 +91,7 @@ La dashboard la legge da **due sorgenti indipendenti dal vendor**, selezionabili
 | **HWiNFO64** | shared memory `Global\HWiNFO_SENS_SM2` | da abilitare in *Settings → General → Shared Memory Support* |
 | **AIDA64** | shared memory `Global\AIDA64_SensorValues`, formato XML | 27 sensori nello screenshot di riferimento |
 
-Entrambe funzionano su Intel **e** su AMD, quindi il PID riceve la temperatura reale su qualsiasi
+Entrambe funzionano su Intel e su AMD, quindi il PID riceve la temperatura reale su qualsiasi
 processore. A parità di priorità viene scelto il **sensore più caldo**, e i sensori **die/core**
 hanno la precedenza sulla lettura generica della CPU: con la CPU che scaldava il TEC, la media dei
 core dice meno del core hotter.
@@ -106,7 +106,7 @@ funzionamento è corretto, la risposta al carico è più lenta.
 
 | Configurazione | Stato |
 |---|---|
-| **Controller Intel Cryo Gen 1** (`HW 4`, firmware `13.A0`) | **collaudato** su tutto il percorso R1 → R13 |
+| **Controller Intel Cryo Gen 1** (`HW 4`, firmware `13.A0`) | **collaudato** su tutto il percorso R1 → R13. R14 e R15 sono verificate a livello software (315 e 320 test) ma non hanno una verifica fisica completa: manca la risposta del controller a un vero distacco di alimentazione e la risposta fisica al DISABLE |
 | **Cella TEC Gen 2 montata su controller Gen 1** | **collaudata**: è la combinazione usata in questo progetto, riportata in testata come `Gen 1 / TEC 2 attive` |
 | **Controller Intel Cryo Gen 2** | non collaudato qui. Stesso protocollo e stessi 26 opcode, ma **le costanti di potenza vanno rimisurate**: il Gen 2 regge più corrente e i valori copiati dal Gen 1 non valgono |
 
@@ -136,7 +136,7 @@ differenza è nel firmware, non nel protocollo.
 </tr>
 </table>
 
-La **Delta² TEC D-RGB** è la cella usata in tutto il collaudo R1 → R13: le misure di questo
+La **Delta² TEC D-RGB** è la cella usata in tutto il percollaudo R1 → R15: le misure di questo
 documento, il carico di 225 W a COP stimato 0,95 e la stabilizzazione a 112 W a COP 1,70 vengono
 tutti da lì.
 
@@ -159,7 +159,7 @@ Le immagini sono rendering ufficiali dei produttori, usati per uso nominativo. C
 
 ---
 
-## La scoperta che cambia tutto
+## La modalita non e un comando seriale
 
 > **Non esiste un opcode "cambia modalità".**
 
@@ -176,11 +176,11 @@ La modalità è lo **stato di un pin GPIO**, letto e scritto dal driver `CCHWApi
 | **< 25 W** per > 10 minuti | l'Unregulated viene sospeso → torna a **Cryo** |
 | **> 25 W** per > 10 minuti | l'Unregulated **continua** |
 
-Questo spiega perché il software Intel *legga* la modalità invece di impostarla: la riga
-`Cooler is in standby mode` è un messaggio di stato, non un'azione. E spiega perché non si può
-aggiungere un interruttore: quel comando non esiste su quel canale.
+Il software Intel *legge* la modalità invece di impostarla: `Cooler is in standby mode` è un
+messaggio di stato. Su quel canale non esiste un comando di commutazione, quindi non è possibile
+aggiungere un interruttore.
 
-### La conseguenza progettuale
+### Come si ottiene un regime
 
 Il regime si ottiene **scrivendo il setpoint offset e poi abilitando il controller**. Il regime è una
 *conseguenza* di quei due comandi:
@@ -217,10 +217,10 @@ Dettaglio completo dell'analisi: [`docs/reverse-engineering/cryo-gen1.md`](docs/
 | **Regimi** | Cryo · Unregulated (offset `-30`) · Standby · Spento, con **dialogo unico** e conferma di regime |
 | **Sicurezza** | guardia anticondensa sul margine `TEC − rugiada`, guardia termica controller, watchdog con disable reale, OCP come **segnale da controllare** (non azione automatica) |
 | **Misure** | piastra, punto di rugiada, umidità, tensione, corrente, watt, duty, temperatura scheda, 14 bit di stato grezzi |
-| **Sensori** | HWiNFO64 shared memory **e** AIDA64, entrambi selezionabili a runtime; priorità ai sensori die/core |
+| **Sensori** | HWiNFO64 shared memory e AIDA64, entrambi selezionabili a runtime; priorità ai sensori die/core |
 | **Grafici** | 8 grafici su asse temporale condiviso, interpolazione 1 s, cache geometria, ~30 fps, stop automatico in Home e nel tray |
 | **Profili** | 3 preset (Silenzioso 60 W / Gaming 120 W / AI 160 W) + profili personali, isteresi ±0,75 °C |
-| **Test** | **314 test passanti** (294 applicazione + 20 libreria), verificati con `cargo test --workspace`; 5 test di integrazione intenzionalmente ignorati perché richiedono hardware collegato o scrivono sul database reale |
+| **Test** | **320 test passanti** (297 applicazione + 23 libreria), verificati con `cargo test --workspace`; 5 test di integrazione intenzionalmente ignorati perché richiedono hardware collegato o scrivono sul database reale |
 | **Diagnostica** | 2 problemi reali, storico min/avg/max di sessione, COP **etichettato come stima**, log `tec-controller.log` |
 | **Dati** | export CSV su Desktop, auto-save CSV ogni 5 min, report PDF, storico sessioni SQLite |
 | **Continuità** | supervisore che riavvia dopo crash, riattiva **solo** Cryo se era stato richiesto, backoff fino a 30 s, `recovery.log` |
@@ -237,7 +237,7 @@ separazione 8 px, badge `CRYOGENIC HAZARD` sempre visibile in testata.
 
 ---
 
-## Configurazione: tutto personalizzabile
+## Configurazione
 
 Nessun parametro di gestione TEC è fissato nel codice. Ogni valore elencato qui è un campo
 pubblico, modificabile a runtime e persistito.
@@ -280,7 +280,7 @@ Su questo hardware (controller Gen 1, cella TEC V2, misure in regime):
 **Metà watt per COP quasi doppio.** Il radiatore riceve molto meno calore. Questo è il risultato
 centrale del lavoro: *a parità di freddo, il punto di funzionamento più basso consuma meno e scalda meno*.
 
-### Due ipotesi iniziali che le misure hanno smentito
+### Misure in conflitto con le prime ipotesi
 
 | Ipotesi iniziale | Verdetto | Evidenza |
 |---|---|---|
@@ -292,7 +292,7 @@ blocco; l'intervento automatico su OCP è stato **limitato a una sola volta** (b
 segnale che scatta a un terzo della potenza nominale non è una protezione e un avviso permanente non
 è un avviso.
 
-### Il limite reale è il lato caldo, non il software
+### Il limite e il lato caldo
 
 Il COP è limitato dal lato caldo. Con lato freddo a 5 °C:
 
@@ -333,19 +333,19 @@ correttezza. È la parte più importante del documento.
   diagnostica.
 - **Non ridistribuisce binari Intel.** Vedi [`SECURITY.md`](SECURITY.md).
 
-### Quattro difetti trovati con la suite verde
+### Difetti risolti in risposta a una revisione del percorso di comando
 
-Una verifica sistematica del 2026-09-29 trovò **quattro difetti mentre i 210 test erano verdi**.
-Nessuno dei quattro era coperto. Da allora il numero di test non viene più usato come prova:
+Una revisione del 29 settembre 2026 ha individuato quattro difetti che la suite di 210 test non
+copriva. Il numero di test non viene usato come unica prova di correttezza.
 
 | # | Difetto | Conseguenza |
 |---|---|---|
-| **D1** | `Tec::new()` mandava `0x1E` (reset di fabbrica) se `BOARD_INIT` non era impostato | a ogni connessione perdevi **PID, setpoint e power cap**. Un limite impostato spariva senza avviso |
-| **D2** | il pulsante abilita scriveva l'offset in proprio | poteva sovrascrivere il `-30` dell'Unregulated mentre il menu mostrava il regime vecchio |
-| **D3** | `tec_abilitato = !LOW_POWER_MODE_ACTIVE` | in Standby, dove il TEC **deve** essere acceso, la guardia perdeva l'autorizzazione a scrivere |
-| **D4** | il margine di condensa non si azzerava su errore | la riga stampava `Margine +3.0 °C OK` in verde **con il controller scollegato da un minuto** |
+| **D1** | `Tec::new()` inviava `0x1E` (reset di fabbrica) quando `BOARD_INIT` non era impostato | a ogni connessione perdeva PID, setpoint e power cap, senza avviso |
+| **D2** | il pulsante di abilitazione scriveva l'offset per conto proprio | poteva sovrascrivere il `-30` dell'Unregulated mentre il menu mostrava il regime precedente |
+| **D3** | `tec_abilitato = !LOW_POWER_MODE_ACTIVE` | in Standby, dove il TEC deve restare acceso, la guardia perdeva l'autorizzazione a scrivere |
+| **D4** | il margine di condensa non si azzerava in caso di errore | il pannello mostrava `Margine +3.0 °C OK` a scheda scollegata da un minuto |
 
-La specifica con le **12 invarianti** che ne deriva è in
+Le 12 invarianti che ne derivano sono specificate in
 [`docs/architecture/unico-percorso-di-comando.md`](docs/architecture/unico-percorso-di-comando.md).
 
 ---
@@ -412,7 +412,7 @@ o un PID. L'unica sorgente di comandi è il regime selezionato, e ogni sequenza 
 `GetBoardStatus()` di conferma: se il controller non conferma, l'interfaccia dice **"non commutato"**,
 non "fatto".
 
-Ogni modulo è un file Focused: 38 file `.rs`, **24.536 righe**, 26 dipendenze dirette nell'app.
+Ogni modulo è un file Focused: 38 file `.rs`, **24.398 righe**, 23 dipendenze dirette (20 runtime, 1 in build, 2 solo Windows).
 
 ---
 
@@ -525,7 +525,7 @@ Tutto il lavoro è documentato, incluse le ipotesi **smentite**.
 | [`hardware/layout-verticale.md`](docs/hardware/layout-verticale.md) | disposizione a due colonne per monitor verticali, palette dei canali, comportamento degli indicatori |
 | [`architecture/unico-percorso-di-comando.md`](docs/architecture/unico-percorso-di-comando.md) | 12 invarianti, i 4 difetti D1-D4, e cosa il progetto ha deciso di non fare |
 | [`architecture/plans/`](docs/architecture/plans/) | i piani di lavoro che hanno prodotto le correzioni |
-| [`releases/`](docs/releases/) | una nota per ogni build verificata, da R1 a R13, con evidenze e limiti |
+| [`releases/`](docs/releases/) | le note di collaudo delle build verificate, da R1 a R15, con evidenze e limiti |
 | [`README-originale-upstream.md`](docs/README-originale-upstream.md) | il README del progetto originale, per confronto |
 | [`TRADEMARKS.md`](TRADEMARKS.md) | loghi dei produttori, uso nominativo, prodotti citati |
 
@@ -537,7 +537,7 @@ Tutto il lavoro è documentato, incluse le ipotesi **smentite**.
 <tr>
 <td align="center"><img src="docs/images/logos/intel.svg" width="120" alt="Intel"></td>
 <td align="center"><img src="docs/images/logos/ek-symbol.png" width="72" alt="EK"></td>
-<td align="center"><img src="docs/images/logos/cm-logo_full.svg" width="150" alt="Cooler Master"></td>
+<td align="center"><img src="docs/images/logos/cm-logo_full.svg" height="34" alt="Cooler Master"></td>
 </tr>
 <tr>
 <td align="center">Intel Corporation</td>

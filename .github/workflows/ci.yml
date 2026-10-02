@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Piattaforma primaria: Windows, dove gira l'applicazione.
+  windows:
+    name: Windows · fmt + clippy + build + test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installa toolchain
+        run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: win-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: win-
+
+      # Non bloccante: il codice non è ancora rustfmt-clean. Va applicato
+      # `cargo fmt --all` in un commit dedicato, senza toccare la logica.
+      - name: Formattazione (non bloccante)
+        run: cargo fmt --all -- --check
+        continue-on-error: true
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets
+
+      - name: Build release
+        run: cargo build --workspace --release
+
+      # I test di integrazione che richiedono hardware collegato o che scrivono
+      # sul database reale sono marcati #[ignore] nel codice: restano ignorati
+      # di proposito, perché un `cargo test` non deve mai accendere il TEC.
+      - name: Test
+        run: cargo test --workspace
+
+  # La libreria del protocollo seriale non ha dipendenze di piattaforma:
+  # compila e si verifica anche su Linux.
+  linux-lib:
+    name: Linux · libreria protocollo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installa toolchain
+        run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: linux-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: linux-
+
+      # serialport e serial (crate della libreria protocollo) linkano contro
+      # librerie di sistema: libudev per l'accesso alle porte, parport per l'idle.
+      # Senza questo passo il clippy Linux fallisce in fase di compilazione, non
+      # per colpa del codice.
+      - name: Librerie di sistema per il collegamento seriale
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y pkg-config libudev-dev
+
+      - name: Formattazione (non bloccante)
+        run: cargo fmt --all -- --check
+        continue-on-error: true
+
+      - name: Clippy libreria
+        run: cargo clippy -p cryo_cooler_controller_lib --all-targets
+
+      - name: Test libreria
+        run: cargo test -p cryo_cooler_controller_lib

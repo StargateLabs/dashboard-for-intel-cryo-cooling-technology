@@ -854,6 +854,7 @@ pub enum Message {
     /// non funzionare.
     FinestraRiportataInFinestra,
     CloseModal,
+    ReconnectController(bool),
     /// Apre la spiegazione delle modalita' del controller.
     ///
     /// Non parte nessun comando TEC: il cambio di modalita' non e' un comando
@@ -1021,7 +1022,22 @@ struct HomeState {
 /// Pausa fra due tentativi di connessione automatica.
 const AUTO_CONNECT_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(2000);
 /// Quante volte riprovare prima di mostrare la schermata Home.
-const AUTO_CONNECT_MAX_TRIES: u32 = 5;
+const AUTO_CONNECT_MAX_TRIES: u32 = 20;
+
+#[cfg(test)]
+mod connection_tests {
+    #[test]
+    fn repeated_detection_requests_do_not_start_parallel_scans() {
+        let mut home=super::HomeState::new();
+        home.scanning=true;
+        home.error_text=Some("scan already in progress".into());
+        for _ in 0..20 {
+            let _=home.update(super::Message::AutoDetectPort);
+            assert!(home.scanning);
+            assert_eq!(home.error_text.as_deref(),Some("scan already in progress"));
+        }
+    }
+}
 
 impl HomeState {
     /// Filtro porte seriali: prioritario su Linux usa ttyUSB/ttyACM, su Windows COM
@@ -1164,6 +1180,7 @@ impl HomeState {
                 return Task::done(Message::AutoDetectPort);
             }
             Message::AutoDetectPort => {
+                if self.scanning { return Task::none(); }
                 self.scanning = true;
                 self.error_text = None;
                 return Task::perform(
@@ -1484,6 +1501,7 @@ struct CryoCoolerController {
     state: State,
     ui: Ui,
     window_focused: bool,
+    resume_after_connect: bool,
 }
 
 enum State {
@@ -1529,6 +1547,7 @@ impl CryoCoolerController {
                 state: State::Home(HomeState::new()),
                 ui: Ui { fullscreen: false },
                 window_focused: true,
+                resume_after_connect: false,
             },
             // Font delle icone +/- dei campi numerici, poi la scansione.
             //
@@ -1580,6 +1599,14 @@ impl CryoCoolerController {
         }
 
         match message {
+            Message::ReconnectController(resume) => {
+                self.resume_after_connect = resume;
+                let mut home = HomeState::new();
+                home.last_scan = Some(std::time::Instant::now());
+                self.state = State::Home(home);
+                recovery::log("Serial connection lost: releasing port and rescanning after 2s");
+                return Task::perform(async {tokio::time::sleep(Duration::from_secs(2)).await}, |_| Message::AutoDetectPort);
+            }
             Message::WindowFocused(focused) => {
                 self.window_focused = focused;
                 return Task::none();
@@ -1629,7 +1656,8 @@ impl CryoCoolerController {
                     match RunningState::new(&port.path) {
                         Ok(rs) => {
                             self.state = State::Running(rs);
-                            return if recovery::resume_once() {
+                            let resume = std::mem::take(&mut self.resume_after_connect) || recovery::resume_once();
+                            return if resume {
                                 recovery::log("Controller reconnected; recovering enabled cooling in Cryo");
                                 Task::done(Message::Enable)
                             } else { Task::none() };
@@ -1726,7 +1754,7 @@ impl CryoCoolerController {
         // Presentation animation is independent of serial polling and guards.
         // Stop animation in Home and while hidden in the tray.
         // Keep visible graphs smooth on a second monitor, even without focus.
-        let ridisegna = if matches!(&self.state, State::Running(s) if s.hidden_at.is_none()) {
+        let ridisegna = if matches!(&self.state, State::Running(s) if s.hidden_at.is_none() && s.telemetry_healthy()) {
             iced::time::every(Duration::from_millis(crate::charts::ANIMATION_MS)).map(|_| Message::RidisegnaGrafici)
         } else {
             Subscription::none()

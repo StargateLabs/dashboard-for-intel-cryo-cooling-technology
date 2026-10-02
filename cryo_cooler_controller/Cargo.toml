@@ -1,6 +1,6 @@
 [package]
 name = "cryo_cooler_controller"
-version = "2.5.0"
+version = "2.7.0"
 edition = "2021"
 
 [dependencies]

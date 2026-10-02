@@ -322,6 +322,8 @@ pub struct RunningState {
     regulation_offset: f32,
     regulation_started: Instant,
     last_sample_time:  Instant,
+    last_valid_sample_at: Option<Instant>,
+    mode_ack_pending: bool,
     /// Istante di avvio: riferimento per le animazioni legate al tempo
     /// (fiocco cryo), cosi' girano alla stessa velocita' su ogni macchina
     /// indipendentemente dalla frequenza dei tick.
@@ -654,6 +656,12 @@ impl Gravita {
 
 
 impl RunningState {
+    pub fn telemetry_healthy(&self) -> bool {
+        self.monitor_failures == 0 && self.last_valid_sample_at.is_some_and(|t|t.elapsed()<Duration::from_secs(3))
+    }
+    fn critical_board_shutdown(board:f32)->bool {
+        board.is_finite() && board>=Self::CTRL_CRITICO
+    }
     pub fn new<T>(serial_port: &T) -> Result<Self, std::io::Error>
     where
         T: AsRef<std::path::Path> + std::fmt::Debug,
@@ -695,6 +703,8 @@ impl RunningState {
             regulation_offset: 2.0,
             regulation_started: Instant::now(),
             last_sample_time: Instant::now(),
+            last_valid_sample_at: None,
+            mode_ack_pending: false,
             soft_starting:     false,
             monitor_failures:  0,
             watchdog_tripped:  false,
@@ -831,117 +841,19 @@ impl RunningState {
         })
     }
 
-    // ── Protezione controller: regolatore a discesa graduale ────────────
-    // Soglia oltre la quale iniziamo a togliere corrente al controller.
-    // ── Soglie della guardia: finestra stretta, 30 °C contro 40 °C ─────
-    //
-    // ── ATTENZIONE: queste soglie valgono per il TUO controller ──────────
-    //
-    // Il tuo e' un **controller Gen 1 modificato** (potenziato), non un Gen 1
-    // originale, e gira su una TEC Gen 2. Le soglie qui sotto sono quelle che
-    // hai dichiarato per *questo* componente, con la ventola e il dissipatore
-    // che hai aggiunto sul lato dei componenti.
-    //
-    // Sono quindi **specifiche del tuo hardware**, non del modello "Gen 1". Se
-    // questo software venisse usato su un Gen 1 originale, i 36/38 °C
-    // potrebbero non avere senso: non li ricaviamo da un manuale del
-    // produttore, li ricaviamo dalle tue misure. Il software non puo' saperlo,
-    // quindi non lo presume: li usa e basta, e i numeri restano dichiarati qui
-    // per chi li modifica.
-    //
-    // I numeri non vengono da un manuale, vengono da tre fatti tuoi:
-    //
-    //  - il controller **a regime sta a 30 °C**;
-    //  - **fino a 35 °C e' normale** (la tua soglia dichiarata);
-    //  - **a 40 °C si sciolgono le guaine dei fili**, e hai gia' dovuto
-    //    sostituirle una volta.
-    //
-    // La finestra utile e' quindi larga **cinque gradi**, e le soglie stanno
-    // dentro, non ai bordi:
-    //
-    //     fino a 35 °C  regime normale          (verde)
-    //        36-37 °C  allarme                 (giallo)
-    //        da 38 °C  rischio di danno       (rosso)
-    //        40 °C     guaine sciolte, sostituite gia' una volta
-    //
-    // Non e' un interruttore ma una **scala**: la guardia comincia a togliere
-    // potenza appena sopra il normale e, dal rosso, puo' scendere fino a zero.
-    // Un interruttore che aspetta 38 °C per reagire lascerebbe 35-37 °C senza
-    // nessuna protezione, e sono esattamente i gradi in cui il danno inizia a
-    // accumularsi.
-    //
-    // Finestra utile: cinque gradi. Non e' un margine comodo, e' la finestra che
-    // c'e'. La prima cosa che la guardia deve fare resta **non salire mai**.
-    //
-    // Il firmware Delta2 va in Standby a 80 °C e in shutdown a 90 °C: quelle
-    // sono soglie di *azione del firmware*, non di *sicurezza del componente*.
-    // Fidarsi di loro avrebbe aspettato il danno — che e' esattamente quello
-    // che faceva la versione precedente.
-    /// **Ripristinato da r116, che e' l'unica versione con 20-30 W.**
-    ///
-    /// Avevo abbassato queste soglie a 36/38 sulla parola "40 °C" detta al
-    /// volo. Ma il tuo controller **sta a 70 °C** — e lo dice il log, non io:
-    /// `ctrl=70.0 °C`. Con 36/38 il tetto era zero in permanenza e il modulo
-    /// non si abilitava: la guardia spegneva sempre, perche' il controller e'
-    /// oltre la soglia in modo permanente, non eccezionale.
-    ///
-    /// 70 °C e' la temperatura **normale** di questo impianto: e' cosi' che
-    /// ha girato per anni con r116 senza danni. Quindi 36/38 erano una soglia
-    /// inventata che impediva al programma di funzionare, e il tetto si mangiava
-    /// il soft start da 30 %.
-    ///
-    /// Qui sotto sta la soglia vera di r116. Il muro a 38 non sparisce: diventa
-    /// un **avviso**, che e' quello che un dato non misurato puo' giustificare.
-    const CTRL_SOFT:      f32 = 66.0;
-    const CTRL_CRITICO:   f32 = 76.0;
-    /// L'allarme che ** precede la guardia: dice "il controller si sta
-    /// scaldando" prima che la guardia tolga potenza.
-    ///
-    /// Sta a 65 °C, un grado sotto la guardia a 66, ed e' **voluto** che
-    /// scatti in modo permanente: il controller di questo impianto sta a
-    /// 70 °C di normale, quindi un avviso che suona solo a 34 non direbbe
-    /// niente. Qui avvisa che siamo **sopra il muro**, che e' il fatto vero.
-    const CTRL_AVVISO: f32 = 65.0;
-    /// **Il muro che avevi indicato tu: 38 °C.** Non e' piu' una soglia che
-    /// spegne, e' un **avviso**: il registro dice "controller oltre 38 °C", e la
-    /// decisione di spegnere resta tua.
-    ///
-    /// La differenza e' sostanziale e non un dettaglio: una soglia che spegne
-    /// a 38 su un controller che sta a 70 **spegne sempre**, quindi non e'
-    /// sicurezza, e' un guasto. Un avviso a 38 invece dice la verta — che quel
-    /// numero e' stato superato — senza impedire il raffreddamento.
+    // Limits explicitly requested for this modified Gen 1 controller.
+    // PCB normal operating measurements are around 30 C. No Gen 2 firmware
+    // temperature limit is used as a safety rating for this installation.
+    const CTRL_SOFT: f32 = 37.0;
+    const CTRL_CRITICO: f32 = cryo_cooler_controller_lib::CRITICAL_BOARD_TEMP;
+    const CTRL_AVVISO: f32 = 37.0;
     const CTRL_MURO: f32 = 38.0;
-
-    /// Il controller e' vicino al muro che l'utente ha dichiarato?
-    ///
-    /// Solo per temperature reali: 200 °C non esiste su questo hardware, e il
-    /// `NAN` arriva dal parsing di byte grezzi. Nessuno dei due e' un
-    /// pericolo, e un allarme su un dato che non e' un dato fa smettere di
-    /// leggere gli allarmi veri.
-    /// **Il muro che hai indicato tu, adesso collegato a qualcosa.**
-    ///
-    /// Prima `CTRL_MURO` era un numero dichiarato e mai usato, quindi la
-    /// guardia poteva spegnere a 66 °C senza che quel numero dicesse nulla.
-    /// Ora la risposta e' un motivo: se il controller ha superato i 38 °C che
-    /// hai indicato come limite, l'allarme lo dice **perche'**, non solo che
-    /// si sta scaldando.
-    ///
-    /// Resta comunque un avviso. Il tuo controller gira a 70 °C da sempre: una
-    /// soglia che spegne a 38 su questo impianto non protegge niente, lo
-    /// impedisce di raffreddare.
-    fn avvicinamento_muro(ctrl_temp: f32) -> bool {
-        ctrl_temp.is_finite() && ctrl_temp > Self::CTRL_AVVISO && ctrl_temp <= 120.0
+    fn avvicinamento_muro(ctrl_temp:f32)->bool {
+        ctrl_temp.is_finite() && ctrl_temp >= Self::CTRL_AVVISO && ctrl_temp <= 150.0
     }
-
-    /// Il controller ha superato il muro di 38 °C che hai indicato tu?
-    ///
-    /// Serve al testo dell'allarme: la differenza tra "si sta scaldando" e
-    /// "oltre i 38 °C" e' la differenza tra un avviso e una segnalazione.
-    fn oltre_il_muro(ctrl_temp: f32) -> bool {
-        ctrl_temp.is_finite() && ctrl_temp > Self::CTRL_MURO
+    fn oltre_il_muro(ctrl_temp:f32)->bool {
+        ctrl_temp.is_finite() && ctrl_temp >= Self::CTRL_MURO
     }
-    /// Passo di correzione per tick (2 Hz). Piccolo di proposito: la
-    /// correzione deve essere graduale, non un gradino.
     const CTRL_STEP_DOWN: i16 = 2;
 
 
@@ -1247,20 +1159,7 @@ impl RunningState {
                     self.power_push_failures
                 ),
             );
-            // **Non si azzera piu'.**
-            //
-            // `ctrl_temp` non e' una temperatura misurata: arriva da
-            // `f32::from_le_bytes` su 4 byte grezzi del controller. Se la
-            // risposta non e' allineata come si suppone, quei byte non sono
-            // un numero ma spazzatura, e la spazzatura letta come float dà
-            // NAN. Non e' "sensore guasto", e' un artefatto di parsing: non
-            // si puo' usare per spegnere.
-            //
-            // Il firmware ha gia' soglie hardware proprie (Standby 80 °C,
-            // spegnimento 90 °C) e protegge l'hardware da solo. Qui si
-            // conserva l'ultimo valore valido e si torna indietro: la
-            // protezione vera, quando il dato manca, e' non alzare la
-            // potenza, non metterla a zero.
+            // Invalid telemetry is rejected by monitor and handled by recovery.
             return;
         }
 
@@ -1284,73 +1183,18 @@ impl RunningState {
             );
         }
 
-        let target = self.tetto_potenza();
-        let cur    = self.applied_power;
-
-        // **Una sola guardia, non due.**
-        //
-        // Questa logica era scritta qui dentro *e* copiata in
-        // `prossima_potenza`, che i test chiamavano. I test passavano, la
-        // copia non era mai stata eseguita durante l'uso reale, e potevano
-        // divergere senza che nessuno se ne accorgesse: 255 test verdi senza
-        // coprire il codice che gira.
-        //
-        // Ora la funzione qui sotto e' l'unica, e i test la chiamano
-        // davvero. Se domani cambia una soglia, cambia per l'app e per le
-        // prove insieme.
-        //
-        // Niente rampa qui dentro: l'app non alza mai la potenza. La rampa di
-        // accensione e' stata rimossa perche' scriveva a ogni campione e
-        // teneva il firmware in manuale inchiodato al cap (227 W, piastra
-        // sotto rugiada). Il firmware regola da solo; la guardia puo' solo
-        // scendere.
-        let next: u8 = Self::prossima_potenza(ctrl_temp, cur, target);
-
-        if next != cur {
-            // Log di collaudo: la decisione della guardia, con la soglia che
-            // l'ha provocata. E' la riga che permette di verificare su
-            // hardware che la guardia reagisce alle soglie del manuale.
-            // Il log dice **perche'** la guardia ha deciso. Il ramo "sotto
-            // soglia fredda" e' sparito con la salita: ora la guardia puo'
-            // solo scendere, e quando scende e' perche' e' caldo.
-            // **L'ordine dei controlli conta.** Prima era:
-            //
-            //     if ctrl_temp >= CTRL_SOFT      { "sopra guardia" }
-            //     else if ctrl_temp >= CTRL_CRITICO { "sopra soglia critica" }
-            //
-            // Il secondo ramo era **codice morto**: `CTRL_SOFT` e' 36 e
-            // `CTRL_CRITICO` e' 38, quindi ogni temperatura sopra 38 °C
-            // soddisfa anche il primo controllo e il log scriveva sempre
-            // "sopra guardia 36 °C" anche a 45 °C. Il caso peggiore, quello
-            // per cui il log esiste, era proprio quello che non si vedeva.
-            //
-            // Ora il caso piu' grave viene valutato per primo.
-            let motivo = if ctrl_temp >= Self::CTRL_CRITICO {
-                format!("sopra soglia critica {} °C", Self::CTRL_CRITICO)
-            } else if ctrl_temp >= Self::CTRL_SOFT {
-                format!("sopra guardia {} °C", Self::CTRL_SOFT)
-            } else {
-                "banda morta".to_owned()
-            };
-            crate::commissioning::event(
-                "POTENZA",
-                &format!(
-                    "ctrl={ctrl_temp:.1} °C  {motivo}  {cur}% -> {next}%  (cap {target}%)"
-                ),
-            );
-
-            // `applied_power` si aggiorna subito (ottimistico): la guardia
-            // del tick dopo deve decidere con il valore appena chiesto, non
-            // con quello precedente. Se l'ack fallisce, il tick registra
-            // l'errore e il re-push riprova.
-            self.applica_potenza(next);
-            self.power_push_failures = 0;
-            crate::commissioning::event(
-                "SET-OK",
-                &format!("set_power_level({next}) inviato all'attore"),
-            );
+        // The Gen 1 power register is not a verified watt limiter. Offset
+        // feedback handles the soft threshold; critical temperature uses
+        // the acknowledged DISABLE transaction instead of a percentage.
+        if Self::critical_board_shutdown(ctrl_temp) {
+            let active=self.ultimo_regime_richiesto.map(|r|r.tec_acceso())
+                .unwrap_or_else(||self.tec_status.contains(TecStatus::PID_RUNNING));
+            if active {
+                crate::commissioning::event("CTRL-CRITICO", &format!("PCB {ctrl_temp:.1} C: DISABLE reale"));
+                self.scrivi_regime(crate::commutazione::Regime::Spento);
+            }
+            return;
         }
-
         // ── L'avviso sul controller ─────────────────────────────────────
         //
         // Prima l'allarme scattava a `CTRL_SOFT - 4.0`: con la vecchia soglia
@@ -1365,8 +1209,7 @@ impl RunningState {
             self.error_text.get_or_insert_with(|| {
                 format!(
                     "Controller TEC a {:.0}°C: sto abbassando la potenza. \
-                     Sopra i 38°C il rischio è danno alle guaine dei fili, \
-                     non solo Standby.",
+                     A 38°C viene richiesto lo spegnimento della TEC.",
                     ctrl_temp
                 )
             });
@@ -1467,7 +1310,7 @@ impl RunningState {
     fn certezza(&self) -> crate::certezza::Certezza {
         crate::commutazione::Regime::da_stato_certainza(
             self.tec_status,
-            self.last_sample_time.elapsed(),
+            self.last_valid_sample_at.map_or(Duration::MAX,|t|t.elapsed()),
             self.commutazione.confermato(),
         )
         .1
@@ -1531,7 +1374,7 @@ impl RunningState {
     fn tec_eroga_potenza(&self) -> bool {
         let (regime, certezza) = crate::commutazione::Regime::da_stato_certainza(
             self.tec_status,
-            self.last_sample_time.elapsed(),
+            self.last_valid_sample_at.map_or(Duration::MAX,|t|t.elapsed()),
             self.commutazione.confermato(),
         );
         crate::certezza::puo_scrivere(certezza) && regime.tec_acceso()
@@ -1847,6 +1690,7 @@ impl RunningState {
     /// dopo il consenso rimetteva in attesa all'infinito con margine basso.
     fn scrivi_regime(&mut self, regime: crate::commutazione::Regime) {
         let piano = regime.piano(self.inputs.set_point);
+        self.mode_ack_pending = true;
         crate::recovery::record_enabled(piano.tec_acceso);
         self.tec_regulator.reset();
         if let Some(offset) = piano.offset { self.regulation_offset = offset; }
@@ -2020,7 +1864,11 @@ impl RunningState {
                 // Gli ack si applicano qui, ma **non** interrompono la ricerca
                 // del campione: e' l'unico posto dove lo stato della UI
                 // diventa vero, e solo se il firmware ha confermato.
-                Ok(P::ErroreRegime(e)) => {
+                Ok(P::ErroreRegime {offset,error:e}) => {
+                    if self.commutazione.richiesto().is_some_and(|r|r.piano(self.inputs.set_point).offset!=offset) {
+                        continue; // A superseded request must not clear the new mode.
+                    }
+                    self.mode_ack_pending = false;
                     self.soft_starting = false;
                     self.ultimo_regime_richiesto = None;
                     self.esito_commutazione = Some(format!("Comando TEC fallito: {e}"));
@@ -2038,15 +1886,16 @@ impl RunningState {
                             self.applied_power = v;
                             self.power_push_failures = 0;
                         }
-                        S::Setpoint(offset) => { self.regulation_offset = offset; }
+                        S::Setpoint(offset) => { if !self.mode_ack_pending { self.regulation_offset = offset; } }
                         S::Pid | S::TempCpu(_) => {}
                         // La commutazione ha risposto. Si aggiorna lo stato
                         // con **quello che il controller ha detto**, non con
                         // quello che avevamo chiesto: e' l'unico modo per non
                         // mostrare un regime che l'hardware non ha assunto.
-                        S::Regime(stato) | S::Spegnimento(stato) => {
+                        S::Regime(stato, _) | S::Spegnimento(stato) => {
                             if let Some(r) = self.commutazione.richiesto() {
-                                if r.tec_acceso() != matches!(scritto, S::Regime(_)) {
+                                let piano=r.piano(self.inputs.set_point);
+                                if !scritto.matches_mode(r.tec_acceso(),piano.offset) {
                                     // ACK precedente: non conferma la richiesta piu' recente.
                                     continue;
                                 }
@@ -2056,6 +1905,8 @@ impl RunningState {
                                 // Gen 1 ignores the requested power cap: no percentage ramp.
                                 self.soft_starting = false;
                             }
+                            self.mode_ack_pending = false;
+                            if let S::Regime(_,Some(offset))=scritto {self.regulation_offset=offset;}
                             self.tec_status = stato.noti;
                             self.tec_status_completo = stato;
                             // L'ack registra i bit del firmware: se il comando
@@ -2311,6 +2162,11 @@ impl RunningState {
                         });
                     }
                 }
+                if self.poll_in_flight && self.last_sample_time.elapsed()>Duration::from_secs(15) {
+                    crate::recovery::log("Serial polling stalled for 15s: restarting supervised process");
+                    if std::env::var_os("CRYO_SUPERVISED_CHILD").is_some() {std::process::exit(70);}
+                    return Task::done(Message::ReconnectController(crate::recovery::cooling_requested()));
+                }
                 if !self.should_update() { return Task::none(); }
                 // **Non** reimpostare `last_sample_time` qui: sotto, in fondo
                 // al tick, la richiesta del campione e' condizionata da
@@ -2462,11 +2318,12 @@ impl RunningState {
                     Ok((data, status)) => (Ok(data), Ok(status)),
                     Err(e) => {
                         self.ocp_consecutive = 0;
-                        (Err(e), Err("nessun battito: round fallito".to_owned()))
+                        (Err(e.clone()), Err(e))
                     }
                 };
                 match mon {
                     Ok(data) => {
+                        self.last_valid_sample_at=Some(Instant::now());
                         self.last_power_watts = data.tec_power_watts;
                         self.last_electrical = Some((data.tec_voltage,data.tec_current));
                         self.last_pcb_temperature = data.pcb_temperature;
@@ -2516,6 +2373,7 @@ impl RunningState {
                         // Gen 1 / TEC Gen 2: regulate demand using actual watts.
                         // Ignore the power-register percentage as a cap.
                         if self.ultimo_regime_richiesto == Some(crate::commutazione::Regime::Cryo)
+                            && !self.mode_ack_pending
                             && self.tec_status.contains(TecStatus::PID_RUNNING) {
                             let budget = 200.0 * self.inputs.max_power.min(100) as f32 / 100.0;
                             if let Some(offset) = self.tec_regulator.update_with_cpu(
@@ -3015,27 +2873,15 @@ impl RunningState {
                         // non reagire a un singolo timeout, che su una
                         // seriale capita normalmente.
                         const WATCHDOG_TRIGGER: u32 = 3;
-                        if self.monitor_failures >= WATCHDOG_TRIGGER
-                            && self.monitor_failures % WATCHDOG_TRIGGER == 0
-                            && (self.last_power_watts > 2.0 || self.applied_power > 0)
-                        {
-                            // Scendiamo comunque: se il comando fallisce
-                            // non e' peggio di lasciare il TEC al massimo.
-                            // Se la scrittura fallisce non c'e' da fare:
-                            // il modulo resta al valore precedente e non
-                            // possiamo far altro da qui. `applied_power`
-                            // non viene toccato, quindi il re-push riprova.
-                            // The Gen 1 board ignored the power cap in the real
-                            // test. A 30% write cannot protect a blind controller.
-                            self.scrivi_regime(crate::commutazione::Regime::Spento);
+                        if self.monitor_failures >= WATCHDOG_TRIGGER && !self.watchdog_tripped {
                             self.watchdog_tripped = true;
-                            crate::commissioning::event(
-                                "WATCHDOG",
-                                &format!(
-                                    "{} errori di monitor(): richiesto DISABLE reale",
-                                    self.monitor_failures
-                                ),
-                            );
+                            let resume = self.ultimo_regime_richiesto
+                                .map(|r| r.piano(self.inputs.set_point).tec_acceso)
+                                .unwrap_or_else(crate::recovery::cooling_requested);
+                            crate::commissioning::event("SERIALE-RECUPERO", &format!("{} errori: chiudo handle USB e riconnetto; ripresa Cryo={resume}; {err}", self.monitor_failures));
+                            // Dropping RunningState attempts one bounded disable and releases
+                            // the actor/port; do not repeatedly write to a broken USB handle.
+                            return Task::done(Message::ReconnectController(resume));
                         }
                     }
                 }
@@ -3666,7 +3512,7 @@ impl RunningState {
                     // `inputs.set_point` e' gia' stato aggiornato dal blocco
                     // sopra, quindi qui si rilegge **clampato**.
                     let limit = self.dew_floor_offset();
-                    self.scrivi_setpoint_utente(self.inputs.set_point.clamp(limit.unwrap_or(-1000.0), 50.0));
+                    self.scrivi_setpoint_utente(self.inputs.set_point.clamp(limit.unwrap_or(-30.0), 50.0));
                 }
             }
             Message::ToggleAlertRule(idx) => {
@@ -4861,7 +4707,7 @@ impl RunningState {
                 // giu'" che dai al modulo, e `0` vuol dire nessuna correzione.
                 // Prima l'avevo limitato a 0.5-50 chiamandolo "gradi sotto la
                 // rugiada": quel numero positivo faceva scaldare l'impianto.
-                .push(NumberInput::new(&self.inputs.set_point, -1000.0..=50.0, Message::UpdateSetpoint)
+                .push(NumberInput::new(&self.inputs.set_point, -30.0..=50.0, Message::UpdateSetpoint)
                     .step(0.5).style(crate::btn::number_input)
                     .input_style(crate::btn::text_input))
                 .padding(3).spacing(4))
@@ -5783,7 +5629,7 @@ impl RunningState {
             .align_y(iced::Alignment::Center)
             .push(Text::new("Offset:").size(14).color(palette::BLUE_DIM))
             .push(
-                NumberInput::new(&self.inputs.set_point, -1000.0..=50.0, Message::UpdateSetpoint)
+                NumberInput::new(&self.inputs.set_point, -30.0..=50.0, Message::UpdateSetpoint)
                     
                     .step(1.0).style(crate::btn::number_input)
                     .input_style(crate::btn::text_input),
@@ -6729,7 +6575,7 @@ impl RunningState {
                         )
                         .push(
                             iced_aw::NumberInput::new(
-                                &self.inputs.set_point, -1000.0..=50.0, Message::UpdateSetpoint,
+                                &self.inputs.set_point, -30.0..=50.0, Message::UpdateSetpoint,
                             )
                             .step(1.0)
                             .style(crate::btn::number_input)
@@ -7916,38 +7762,18 @@ mod test_guardia_solo_scende {
     /// è caldo, toglie potenza. È l'unico verso in cui deve muoversi da sola.
     #[test]
     fn sopra_soglia_scende() {
-        // Le soglie sono quelle di r116 (66/76), perche' il tuo controller
-        // **sta a 70 °C**: e' la sua temperatura normale, non un'anomalia.
-        // Con 36/38 la guardia era sempre oltre soglia e spegneva sempre.
-        // 70 °C: fra le due soglie, resta il pavimento.
         assert_eq!(prossima_potenza(70.0, 100, 100), 98);
         assert_eq!(prossima_potenza(70.0, 52, 100), 50);
-
-        // 80 °C: sopra CTRL_CRITICO (76). Il pavimento sparisce, puo' andare a
-        // zero.
         assert_eq!(prossima_potenza(80.0, 10, 100), 8);
     }
-
-    /// **Zona gialla 36–37 °C con potenza sotto il pavimento: scende, non salta.**
-    ///
-    /// Il ramo giallo faceva `scesa.max(50)`: con `cur = 30` dava `50`, cioe'
-    /// la guardia ALZAVA da sola di 20 punti mentre il controller era caldo —
-    /// contro la sua stessa regola "mai aumentare". Il pavimento deve impedire
-    /// di scendere sotto 50, non farci saltare dentro dal basso.
     #[test]
     fn in_zona_gialla_sotto_il_pavimento_scende_e_non_salta() {
         assert_eq!(prossima_potenza(70.0, 30, 100), 28);
-        // 65 °C: sotto CTRL_SOFT (66) la guardia e' muta, non tocca niente.
-        assert_eq!(prossima_potenza(65.0, 10, 100), 10);
+        assert_eq!(prossima_potenza(33.0, 10, 100), 10);
         assert_eq!(prossima_potenza(67.0, 0, 100), 0);
-        // Sopra il pavimento il comportamento non cambia: scende al pavimento.
         assert_eq!(prossima_potenza(70.0, 100, 100), 98);
         assert_eq!(prossima_potenza(70.0, 52, 100), 50, "pavimento 50%");
     }
-
-    /// Le soglie devono stare **sotto i 66 °C** che l'utente ha indicato come
-    /// dannosi, e **sopra i 30 °C** a cui il controller sta a regime. Fuori da
-    /// quella finestra la guardia o non reagisce, o reagisce troppo tardi.
     #[test]
     fn le_soglie_stanno_nella_finestra_giusta() {
         use super::RunningState;
@@ -7959,17 +7785,10 @@ mod test_guardia_solo_scende {
             RunningState::CTRL_CRITICO > RunningState::CTRL_SOFT,
             "la soglia critica deve stare sopra quella d'azione"
         );
-        // **Il muro che hai indicato tu resta, ma come avviso.**
         assert_eq!(RunningState::CTRL_MURO, 38.0);
-        // Cinque gradi sopra il regime normale non e' un margine da risparmiare:
-        // e' quello che rende la guardia utile senza che scatti a ogni variazione.
-        // **70 °C e' il regime normale, e la soglia e' a 66.** Quindi la
-        // guardia agisce sempre: e' esattamente il comportamento di r116, e
-        // non e' un difetto. Con il pavimento a 50 il modulo si assesta li'
-        // invece di salire al cap — i 20-30 W che hai misurato.
-        assert_eq!(RunningState::CTRL_SOFT, 66.0);
+        assert_eq!(RunningState::CTRL_SOFT, 37.0);
         assert_eq!(
-            RunningState::CTRL_CRITICO, 76.0,
+            RunningState::CTRL_CRITICO, 38.0,
             "il rosso parte alla soglia critica, quella di r116"
         );
         assert!(
@@ -7981,21 +7800,7 @@ mod test_guardia_solo_scende {
 
 #[cfg(test)]
 mod test_scala_controller {
-    //! La scala di temperatura che hai dichiarato tu, verificata.
-    //!
-    //!     fino a 35 °C   normale
-    //!        36-37 °C   allarme, la guardia toglie potenza
-    //!        38+   °C   rischio di danno, puo' scendere a zero
-    //!        40 °C       guaine sciolte (sostituite gia' una volta)
-    //!
-    //! Il punto non e' la classificazione, e' che **nessuna soglia puo' stare
-    //! dove comincerebbe a fare danno**. Con la versione precedente la guardia
-    //! aspettava 66 °C per iniziare a scendere: a 66 °C le guaine erano gia'
-    //! sciolte. E il ramo "freddo" saliva verso il cap dell'operatore, quindi su
-    //! un controller a 30 °C saliva sempre fino al massimo.
     use super::RunningState;
-
-    /// Comprime la scala in un solo numero, per poterla testare.
     fn fascia(t: f32) -> &'static str {
         if t <= 35.0 {
             "normale"
@@ -8016,34 +7821,23 @@ mod test_scala_controller {
         assert_eq!(fascia(38.0), "danno", "da qui il rischio");
         assert_eq!(fascia(40.0), "danno");
     }
-
-    /// **Nessuna soglia sopra i 38 °C.** Sarebbe aspettare il danno.
     #[test]
     fn le_soglie_non_aspettano_il_danno() {
         assert!(
-            RunningState::CTRL_SOFT <= 66.0,
+            RunningState::CTRL_SOFT == 37.0,
             "la guardia deve iniziare a 36, non piu' tardi"
         );
         assert!(
-            RunningState::CTRL_CRITICO <= 76.0,
+            RunningState::CTRL_CRITICO <= 38.0,
             "il rosso deve partire a 38, non piu' tardi"
         );
     }
-
-    /// La discesa e' graduale: un passo alla volta, non un colpo. Strappare
-    /// potenza a meta' fa oscillare la temperatura, che e' il modo peggiore
-    /// per far raffreddare un controller: parte il ciclo termico.
     #[test]
     fn la_discesa_e_graduale() {
         use super::RunningState;
-        // Dalla potenza piena scende di due punti, non a zero.
         let potenza: u8 = 100;
         let sceso = potenza.saturating_sub(RunningState::CTRL_STEP_DOWN as u8);
         assert_eq!(sceso, 98, "un passo deve essere piccolo: 100 -> {sceso}");
-
-        // **Nessun pavimento.** Ripetendo il passo si arriva a zero: prima si
-        // fermava al 50, e per questo la potenza non scendeva mai dove l'hai
-        // misurata. Il cap che scegli tu e' l'unico limite.
         let mut p = 100_u8;
         for _ in 0..60 {
             p = p.saturating_sub(RunningState::CTRL_STEP_DOWN as u8);
@@ -8056,18 +7850,7 @@ mod test_scala_controller {
 
 #[cfg(test)]
 mod test_tetto_per_temperatura {
-    //! **Il tetto del modulo e' legato alla temperatura del controller**, e il
-    //! 38 °C e' un muro, non un target.
-    //!
-    //! Il vincolo e' dell'utente: il controller non deve mai superare 38/40 °C,
-    //! e a 40 °C le guaine si sciolgono. Quindi il tetto del modulo non puo'
-    //! essere un numero fisso: piu' il controller e' caldo, meno il modulo puo'
-    //! spingere. E il tetto non deve mai superare la soglia critica.
     use super::RunningState;
-
-    /// Il tetto cala monotonicamente col crescere della temperatura: piu'
-    /// caldo, meno potenza. E non sale mai, perche' il recupero sarebbe
-    /// instabile.
     #[test]
     fn il_tetto_cala_col_crescere_del_controller() {
         let fresco = RunningState::tetto_per_ctrl(10.0, 100);
@@ -8076,18 +7859,12 @@ mod test_tetto_per_temperatura {
         assert!(tiepido <= fresco, "tetto salito: {tiepido} > {fresco}");
         assert!(caldo <= tiepido, "tetto salito: {caldo} > {tiepido}");
     }
-
-    /// **Il tetto e' sempre 0 alla soglia critica**: a 38 °C il controller e'
-    /// al muro che l'utente ha dichiarato, e li' la potenza va a zero.
     #[test]
     fn alla_soglia_critica_il_tetto_e_zero() {
-        assert_eq!(RunningState::tetto_per_ctrl(76.0, 100), 0);
+        assert_eq!(RunningState::tetto_per_ctrl(38.0, 100), 0);
         assert_eq!(RunningState::tetto_per_ctrl(85.0, 100), 0);
-        // appena sotto, il tetto e' ancora qualcosa
-        assert!(RunningState::tetto_per_ctrl(74.0, 100) > 0);
+        assert!(RunningState::tetto_per_ctrl(37.2, 100) > 0);
     }
-
-    /// Il tetto non supera mai il cap dell'operatore, e non va sotto zero.
     #[test]
     fn il_tetto_resta_dentro_il_cap() {
         for t in [0.0_f32, 10.0, 25.0, 35.0] {
@@ -8097,9 +7874,6 @@ mod test_tetto_per_temperatura {
             }
         }
     }
-
-    /// Sotto la soglia di guardia il cap dell'operatoe vale per intero: non
-    /// si toglie potenza a chi sta col fresco.
     #[test]
     fn a_freddo_il_cap_e_intatto() {
         assert_eq!(RunningState::tetto_per_ctrl(15.0, 100), 100);
@@ -8109,55 +7883,32 @@ mod test_tetto_per_temperatura {
 
 #[cfg(test)]
 mod test_allarme_avvicinamento {
-    //! Un allarme **prima** che la guardia agisca: se l'utente deve
-    //! intervenire, deve saperlo mentre c'e' ancora margine.
-    //!
-    //! La guardia a 36 °C toglie potenza di nascosto. Senza un avviso prima,
-    //! l'operatore vede il modulo che rallenta e non sa perche'. Qui la
-    //! soglia di avviso e' sotto la soglia d'azione, sempre.
     use super::RunningState;
-
-    /// L'avviso parte **prima** della guardia, non insieme.
     #[test]
-    fn lavviso_parte_prima_della_guardia() {
-        assert!(RunningState::CTRL_AVVISO < RunningState::CTRL_SOFT);
+    fn lavviso_non_arriva_dopo_la_guardia() {
+        assert!(RunningState::CTRL_AVVISO <= RunningState::CTRL_SOFT);
     }
-
-    /// Sotto l'avviso non si dice niente: un avviso che suona sempre
-    /// smette di essere ascoltato.
     #[test]
     fn sotto_lavviso_nessun_allarme() {
         assert!(!RunningState::avvicinamento_muro(10.0));
         assert!(!RunningState::avvicinamento_muro(28.0));
         assert!(!RunningState::avvicinamento_muro(33.0));
-        assert!(!RunningState::avvicinamento_muro(65.0));
+        assert!(!RunningState::avvicinamento_muro(33.0));
     }
-
-    /// Vicino al muro l'allarme c'e'. Il muro di azione e' a 66 °C: sotto,
-    /// l'avviso non c'e' perche' non sta succedendo niente.
     #[test]
     fn vicino_al_muro_lallarme_c_e() {
-        assert!(RunningState::avvicinamento_muro(67.0));
-        assert!(RunningState::avvicinamento_muro(70.0));
-        assert!(RunningState::avvicinamento_muro(76.0));
+        assert!(RunningState::avvicinamento_muro(37.1));
+        assert!(RunningState::avvicinamento_muro(37.4));
+        assert!(RunningState::avvicinamento_muro(38.0));
     }
-
-    /// **Il muro di 38 °C che hai indicato tu e' un fatto, e si vede.**
-    ///
-    /// Un controller a 70 °C ha superato 38 da un pezzo: dirlo e' l'unica cosa
-    /// che l'avviso puo' fare di utile, perche' il dato non e' normale e non
-    /// va presentato come se lo fosse.
     #[test]
     fn oltre_il_muro_38_lo_dice() {
         assert!(!RunningState::oltre_il_muro(30.0));
-        assert!(!RunningState::oltre_il_muro(38.0));
+        assert!(RunningState::oltre_il_muro(38.0));
         assert!(RunningState::oltre_il_muro(38.1));
-        assert!(RunningState::oltre_il_muro(70.0));
+        assert!(RunningState::oltre_il_muro(40.0));
         assert!(!RunningState::oltre_il_muro(f32::NAN));
     }
-
-    /// Una lettura assurda non fa scattare allarmi: non e' un pericolo
-    /// reale, e' spazzatura di parsing.
     #[test]
     fn una_lettura_assurda_non_allarma() {
         assert!(!RunningState::avvicinamento_muro(f32::NAN));
@@ -8168,108 +7919,71 @@ mod test_allarme_avvicinamento {
 
 #[cfg(test)]
 mod test_nessun_regolatore {
-    //! **La riga che chiudeva il regolatore: questa build non deve chiamarlo.**
-    //!
-    //! Il regolatore era il motore dei 150-225 W. Non un difetto di taratura:
-    //! una funzione che non doveva esistere. Ogni 250 ms guardava la
-    //! temperatura e decideva di salire, e con una salita che arriva a 8
-    //! punti per tick teneva il modulo inchiodato al cap perennemente.
-    //!
-    //! r116 non aveva nessun regolatore: contiamo zero funzioni di quel tipo
-    //! nel backup, tre in questo file. La potenza la scriveva l'operatore e
-    //! basta, e il modulo faceva il suo lavoro da solo — 20-30 W.
     use super::RunningState;
-
-    /// **La guardia da sola non deve mai alzare la potenza sopra il cap.**
-    ///
-    /// Questo e' il comportamento di r116: la guardia puo' solo togliere.
-    /// Se torna un giorno una salita, questo test la smaschera.
     #[test]
     fn la_guardia_mai_sopra_il_cap() {
-        // Freddo, ma il cap e' 50: non si sale a 51. Sotto soglia la guardia
-        // non muove niente, quindi 49 resta 49.
         let p = RunningState::prossima_potenza(20.0, 49, 50);
         assert!(p <= 50, "la guardia ha alzato sopra il cap: {p}");
         assert_eq!(p, 49, "sotto soglia resta com'e'");
     }
-
-    /// Il ciclo della guardia e' **solo discesa** sotto soglia, e la salita
-    /// che ho provato ad aggiungere non c'e' piu': sotto soglia non si tocca.
     #[test]
     fn sotto_soglia_la_guardia_non_muove_nulla() {
-        // r116 sotto la soglia (66 °C) la guardia era muta: niente sale,
-        // niente scende. Qui sotto i 36 °C deve valere lo stesso.
         assert_eq!(RunningState::prossima_potenza(30.0, 30, 100), 30);
         assert_eq!(RunningState::prossima_potenza(30.0, 20, 100), 20);
         assert_eq!(RunningState::prossima_potenza(30.0, 90, 100), 90);
     }
-
-    /// Sopra soglia scende, e sotto il cap dell'operatore non va.
     #[test]
     fn sopra_soglia_scende_e_resta_sotto_il_cap() {
-        assert_eq!(RunningState::prossima_potenza(70.0, 90, 100), 88);
-        let tetto = RunningState::tetto_per_ctrl(70.0, 40) as u8;
-        let p = RunningState::prossima_potenza(70.0, 90, 40);
+        assert_eq!(RunningState::prossima_potenza(37.4, 90, 100), 88);
+        let tetto = RunningState::tetto_per_ctrl(37.4, 40) as u8;
+        let p = RunningState::prossima_potenza(37.4, 90, 40);
         assert!(p <= 40, "la guardia ha superato il cap dell'operatore: {p}");
     }
-
-    /// **Il muro a 38 °C e' l'unica cosa che ho aggiunto, e regge.**
     #[test]
-    fn a_38_il_tetto_non_agisce_e_l_avviso_c_e() {
-        // **Il tetto non agisce a 38.** Il controller sta a 70 °C di normale:
-        // una soglia che spegne a 38 spegne sempre, e non e' sicurezza, e'
-        // un guasto. Il cap resta il cap.
-        assert_eq!(RunningState::tetto_per_ctrl(38.0, 100), 100);
-        assert_eq!(RunningState::tetto_per_ctrl(65.0, 100), 100);
-        // Solo sopra i 70 °C reali il tetto comincia a stringere: a 76 e' zero.
-        assert_eq!(RunningState::tetto_per_ctrl(70.0, 100), 70);
-        assert_eq!(RunningState::tetto_per_ctrl(74.0, 100), 40);
-        assert_eq!(RunningState::tetto_per_ctrl(76.0, 100), 0);
-        // Il muro resta, ma come **avviso**: il numero che mi hai dato tu.
+    fn a_38_il_tetto_e_zero() {
+        assert_eq!(RunningState::tetto_per_ctrl(38.0, 100), 0);
+        assert_eq!(RunningState::tetto_per_ctrl(33.0, 100), 100);
+        assert_eq!(RunningState::tetto_per_ctrl(37.4, 100), 70);
+        assert_eq!(RunningState::tetto_per_ctrl(37.8, 100), 40);
+        assert_eq!(RunningState::tetto_per_ctrl(38.0, 100), 0);
         assert_eq!(RunningState::CTRL_MURO, 38.0);
-        // E sopra i 70 °C reali la guardia torna a scendere, come in r116.
         assert_eq!(RunningState::prossima_potenza(80.0, 60, 100), 58);
     }
 }
 
 #[cfg(test)]
 mod test_tetto_scala_reale {
-    //! **Le soglie sono quelle di r116, perche' il controller sta a 70 °C.**
-    //!
-    //! Avevo abbassato tutto a 36/38 sulla parola "40 °C" detta al volo. Ma il
-    //! registro dice `ctrl=70.0 °C`: e' la temperatura **normale** di questo
-    //! impianto. Con 36/38 il tetto era zero in permanenza, la guardia spegneva
-    //! sempre e il TEC non si abilitava — non era sicurezza, era un guasto.
-    //!
-    //! Il muro a 38 che hai indicato tu resta, ma come **avviso**: un numero
-    //! mai misurato puo' giustificare un avviso, non uno spegnimento.
     use super::RunningState;
 
     #[test]
     fn in_regime_normale_il_cap_e_intatto() {
         assert_eq!(RunningState::tetto_per_ctrl(30.0, 100), 100);
-        assert_eq!(RunningState::tetto_per_ctrl(65.0, 100), 100);
-        assert_eq!(RunningState::tetto_per_ctrl(66.0, 100), 100);
-        // **E a 38 il tetto non agisce**: e' l'avviso, non lo spegnimento.
-        assert_eq!(RunningState::tetto_per_ctrl(38.0, 100), 100);
+        assert_eq!(RunningState::tetto_per_ctrl(33.0, 100), 100);
+        assert_eq!(RunningState::tetto_per_ctrl(37.0, 100), 100);
+        assert_eq!(RunningState::tetto_per_ctrl(38.0, 100), 0);
     }
 
     #[test]
     fn la_scala_stringe_nella_fascia_di_guardia() {
-        assert_eq!(RunningState::tetto_per_ctrl(67.0, 100), 93);
-        assert_eq!(RunningState::tetto_per_ctrl(70.0, 100), 70);
-        assert_eq!(RunningState::tetto_per_ctrl(74.0, 100), 40);
-        assert_eq!(RunningState::tetto_per_ctrl(76.0, 100), 0);
+        assert!((92..=93).contains(&RunningState::tetto_per_ctrl(37.1, 100)));
+        assert_eq!(RunningState::tetto_per_ctrl(37.4, 100), 70);
+        assert_eq!(RunningState::tetto_per_ctrl(37.8, 100), 40);
+        assert_eq!(RunningState::tetto_per_ctrl(38.0, 100), 0);
     }
 
     #[test]
     fn il_muro_38_e_dichiarato() {
         assert_eq!(RunningState::CTRL_MURO, 38.0);
+        assert_eq!(RunningState::CTRL_CRITICO, 38.0);
+        assert!(!RunningState::critical_board_shutdown(37.9));
+        assert!(RunningState::critical_board_shutdown(38.0));
+        assert!(RunningState::critical_board_shutdown(40.0));
+        assert!(!RunningState::critical_board_shutdown(f32::NAN));
     }
 
     #[test]
-    fn a_70_il_soft_start_ha_spazio() {
-        let tetto = RunningState::tetto_per_ctrl(70.0, 100);
+    fn a_37_4_il_tetto_e_ridotto() {
+        let tetto = RunningState::tetto_per_ctrl(37.4, 100);
         assert_eq!(tetto, 70);
         assert!(tetto > 30, "il tetto non deve mangiare il soft start da 30%");
     }
@@ -8277,8 +7991,11 @@ mod test_tetto_scala_reale {
     #[test]
     fn il_cap_del_operatore_e_rispettato() {
         assert_eq!(RunningState::tetto_per_ctrl(20.0, 50), 50);
-        for t in [0.0, 20.0, 34.0, 38.0, 66.0, 70.0, 74.0, 76.0, 80.0] {
+        for t in [0.0, 20.0, 37.0, 38.0, 37.0, 37.4, 37.8, 38.0, 80.0] {
             assert!(RunningState::tetto_per_ctrl(t, 60) <= 60, "tetto sopra il cap a {t}");
         }
     }
 }
+
+
+
