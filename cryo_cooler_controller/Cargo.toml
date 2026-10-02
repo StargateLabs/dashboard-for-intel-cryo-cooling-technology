@@ -29,7 +29,7 @@ tray-icon = "0.4.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
-reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls", "blocking"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
 # Dipendenza diretta per forzare time >= 0.3.36 (fix bug E0282 in 0.3.31)
 time = { version = ">=0.3.36" }
 rusqlite = { version = "0.31", features = ["bundled"] }
