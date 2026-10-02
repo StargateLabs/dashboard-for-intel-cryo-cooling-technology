@@ -228,7 +228,7 @@ Dettaglio completo dell'analisi: [`docs/reverse-engineering/cryo-gen1.md`](docs/
 
 ### Layout per monitor verticali
 
-![](./docs/images/dashboard-verticale.jpg)
+![Dashboard CryoCooling su monitor verticale: sidebar fissa a sinistra con strumentazione e controlli, a destra otto grafici su asse temporale condiviso e pannello dei sensori AIDA64](docs/images/dashboard-verticale.jpg)
 
 Progettato per **1080×1920 e simili**: sidebar fissa a sinistra (≈26 %) con strumentazione, controlli,
 PID, profili e integrazioni; colonna destra fluida con 8 grafici impilati su **asse temporale condiviso**
