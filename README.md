@@ -537,7 +537,7 @@ Tutto il lavoro è documentato, incluse le ipotesi **smentite**.
 <tr>
 <td align="center"><img src="docs/images/logos/intel.svg" width="120" alt="Intel"></td>
 <td align="center"><img src="docs/images/logos/ek-symbol.png" width="72" alt="EK"></td>
-<td align="center"><img src="docs/images/logos/cm-logo_full.svg" width="150" alt="Cooler Master"></td>
+<td align="center"><img src="docs/images/logos/cm-logo_full.svg" height="34" alt="Cooler Master"></td>
 </tr>
 <tr>
 <td align="center">Intel Corporation</td>
