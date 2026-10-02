@@ -1471,7 +1471,7 @@ impl RunningState {
         };
 
         let salvato = dirs::data_local_dir()
-            .or_else(dirs::config_dir)
+            .or_else(|| dirs::config_dir())
             .map(|d| d.join("stargate-cryo"))
             .and_then(|d| std::fs::create_dir_all(&d).ok().map(|_| d))
             .map(|d| crate::curva::registra(&d.join("curva-cella.csv"), &punto))
@@ -2251,11 +2251,11 @@ impl RunningState {
 
                 // Sample the displayed CPU each second to feed the visual buffer.
                 // Controller injection keeps its existing, independent cadence.
-                if self.tick_count.is_multiple_of(2) {
+                if self.tick_count % 2 == 0 {
                     self.last_cpu_temp_ext = hwinfo::read_cpu_temperature(&self.sensors.active_source);
                     if let Some(cpu_t) = self.last_cpu_temp_ext { self.chart.update_cpu_temp(cpu_t); }
                 }
-                if self.tick_count.is_multiple_of(CPU_TEMP_PUSH_INTERVAL) {
+                if self.tick_count % CPU_TEMP_PUSH_INTERVAL == 0 {
                     if let Some(cpu_t) = self.last_cpu_temp_ext {
                         self.scrivi_tec(crate::attore_tec::Richiesta::TempCpu(cpu_t));
                     }
@@ -2286,7 +2286,7 @@ impl RunningState {
                 // FEAT #1: Auto-save CSV ogni 5 minuti (600 tick × 500ms = 300s)
                 // Protegge i dati in caso di crash durante sessioni OC aggressive.
                 self.auto_save_ticks = self.auto_save_ticks.wrapping_add(1);
-                if self.auto_save_ticks.is_multiple_of(600) && self.auto_save_ticks > 0 {
+                if self.auto_save_ticks % 600 == 0 && self.auto_save_ticks > 0 {
                     if let Ok(path) = self.auto_save_csv() {
                         // Aggiorna la status bar silenziosamente (nessun modal)
                         self.pdf_status = Some(format!("💾 Auto-save: {}", path.file_name()
@@ -2347,7 +2347,7 @@ impl RunningState {
                         }
                         self.last_cond_margin = data.condensation_margin;
                         self.active_alerts = self.active_alerts.iter().filter(|(channel,_)| {
-                            self.valore_live_canale(channel).is_none_or(|value| {
+                            self.valore_live_canale(channel).map_or(true, |value| {
                                 self.alert_manager.rules().iter().any(|r|r.channel == *channel && r.triggered(value))
                             })
                         }).cloned().collect();
@@ -2568,7 +2568,7 @@ impl RunningState {
 
                         // ── Alert Manager ────────────────────────────
                         // Alert check ogni 2s (4 tick @ 2 Hz)
-                        if self.tick_count.is_multiple_of(ALERT_EVERY_TICKS) {
+                        if self.tick_count % ALERT_EVERY_TICKS == 0 {
                             // Se la pompa non e' leggibile, si passa un
                             // valore "neutro" (sopra soglia) invece di 0.
                             //
@@ -2815,7 +2815,7 @@ impl RunningState {
 
                         // ── Overlay RTSS + Discord (ogni 2s = 4 tick @ 2 Hz) ──
                         self.overlay_ticks = self.overlay_ticks.wrapping_add(1);
-                        if self.overlay_ticks.is_multiple_of(4) {
+                        if self.overlay_ticks % 4 == 0 {
                             self.rtss.update(
                                 data.tec_temperature,
                                 data.condensation_margin,
@@ -3592,7 +3592,7 @@ impl RunningState {
     /// Esporta il log corrente in CSV sul Desktop.    /// Ritorna il path del file scritto, o un messaggio d'errore.
     fn export_csv(&self) -> Result<std::path::PathBuf, String> {
         let desktop = dirs::desktop_dir()
-            .or_else(dirs::home_dir)
+            .or_else(|| dirs::home_dir())
             .unwrap_or_else(|| std::path::PathBuf::from("."));
         let ts   = chrono::Utc::now().format("%Y%m%d_%H%M%S");
         let path = desktop.join(format!("stargate_cryo_{ts}.csv"));
@@ -5545,8 +5545,8 @@ impl RunningState {
                     radius: iced_core::border::Radius {
                         top_left: 0.0,
                         top_right: 0.0,
-                        bottom_right: 12.0,
-                        bottom_left: 12.0,
+                        bottom_right: 12.0_f32.into(),
+                        bottom_left: 12.0_f32.into(),
                     },
                 },
                 text_color: None,

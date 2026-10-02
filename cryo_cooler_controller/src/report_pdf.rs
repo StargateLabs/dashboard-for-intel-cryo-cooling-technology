@@ -218,7 +218,7 @@ fn ascii_sparkline(data: &[f32], width: usize) -> String {
 fn report_path() -> std::path::PathBuf {
     let ts = Utc::now().format("%Y%m%d_%H%M%S").to_string();
     let desktop = dirs::desktop_dir()
-        .or_else(dirs::home_dir)
+        .or_else(|| dirs::home_dir())
         .unwrap_or_else(|| std::path::PathBuf::from("."));
     desktop.join(format!("stargate_cryo_report_{}.pdf", ts))
 }

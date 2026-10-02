@@ -102,7 +102,7 @@ impl SensorsPanel {
 
     pub fn tick(&mut self) {
         self.refresh_ticks = self.refresh_ticks.wrapping_add(1);
-        if self.refresh_ticks.is_multiple_of(20) {
+        if self.refresh_ticks % 20 == 0 {
             self.status  = crate::hwinfo::check_sources();
             self.sensors = crate::hwinfo::read_all_sensors(&self.active_source);
             // La sorgente attiva puo' essersi svuotata (programma chiuso,
@@ -474,13 +474,13 @@ fn sensor_grid_ref<'a>(items: &[&'a SensorReading]) -> Element<'a, Message> {
     for s in items {
         row = row.push(sensor_card(s));
         n  += 1;
-        if n.is_multiple_of(4) {
+        if n % 4 == 0 {
             col = col.push(row);
             row = Row::new().spacing(4).width(Length::Fill);
         }
     }
     // Flush ultima riga parziale
-    if !n.is_multiple_of(4) {
+    if n % 4 != 0 {
         col = col.push(row);
     }
     col.into()

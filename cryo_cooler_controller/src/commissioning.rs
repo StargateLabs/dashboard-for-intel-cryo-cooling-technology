@@ -26,7 +26,7 @@ fn log_path() -> Option<std::path::PathBuf> {
         return std::env::current_exe().ok().and_then(|p| p.parent().map(|dir| dir.join("tec-controller.log")));
     }
     let dir = dirs::data_local_dir()
-        .or_else(dirs::config_dir)
+        .or_else(|| dirs::config_dir())
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("stargate-cryo");
     std::fs::create_dir_all(&dir).ok()?;
@@ -44,7 +44,7 @@ pub fn event(azione: &str, dettaglio: &str) {
 }
 
 fn write_event(path: &std::path::Path, azione: &str, dettaglio: &str) {
-    if std::fs::metadata(path).is_ok_and(|m| m.len() > 2_000_000) {
+    if std::fs::metadata(path).map_or(false, |m| m.len() > 2_000_000) {
         let _ = std::fs::rename(path, path.with_extension("previous.log"));
     }
     let ts = chrono_like_now();

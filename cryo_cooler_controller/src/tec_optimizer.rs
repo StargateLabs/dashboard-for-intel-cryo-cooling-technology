@@ -22,20 +22,20 @@ impl Regulator {
     pub fn update_with_cpu(&mut self, now:f64,cold:f32,dew:f32,board:f32,
         watts:f32,offset:f32,budget:f32,board_limit:f32,target_margin:f32,cpu:Option<f32>)->Option<f32> {
         // Cooling priority hint, not a processor-specific shutdown threshold.
-        let hot_cpu=cpu.is_some_and(|t| t.is_finite() && (85.0..=150.0).contains(&t));
+        let hot_cpu=cpu.map_or(false, |t| t.is_finite() && (85.0..=150.0).contains(&t));
         if ![now, cold as f64, dew as f64, board as f64, watts as f64, offset as f64, budget as f64, board_limit as f64, target_margin as f64].iter().all(|v| v.is_finite())
             || !(0.0..=200.0).contains(&budget) || !(2.0..=20.0).contains(&target_margin)
             || !(-40.0..=100.0).contains(&cold) || !(-40.0..=60.0).contains(&dew)
             || !(-40.0..=150.0).contains(&board) || !(0.0..=1000.0).contains(&watts) {
             self.reset(); self.status = "Sensori non validi: nessun aumento"; return None;
         }
-        if self.last_action.is_some_and(|t| now < t) { self.reset(); }
+        if self.last_action.map_or(false, |t| now < t) { self.reset(); }
         let margin = cold - dew;
         let over_budget = watts > budget + 5.0;
         let protection = margin < 1.5 || board >= board_limit || over_budget;
         let physical_protection = margin < 1.5 || board >= board_limit;
         let interval = if physical_protection { 2.0 } else if over_budget { 30.0 } else { 10.0 };
-        if self.last_action.is_some_and(|t| now-t < interval) { return None; }
+        if self.last_action.map_or(false, |t| now-t < interval) { return None; }
         let mut next = offset;
         if protection {
             // Larger offset requests less cooling. Feedback measures the result;
