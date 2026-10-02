@@ -108,7 +108,7 @@ funzionamento è corretto, la risposta al carico è più lenta.
 |---|---|
 | **Controller Intel Cryo Gen 1** (`HW 4`, firmware `13.A0`) | **collaudato** su tutto il percorso R1 → R13 |
 | **Cella TEC Gen 2 montata su controller Gen 1** | **collaudata**: è la combinazione usata in questo progetto, riportata in testata come `Gen 1 / TEC 2 attive` |
-| **Controller Intel Cryo Gen 2** | non collaudato qui. Stesso protocollo e stessi 21 opcode, ma **le costanti di potenza vanno rimisurate**: il Gen 2 regge più corrente e i valori copiati dal Gen 1 non valgono |
+| **Controller Intel Cryo Gen 2** | non collaudato qui. Stesso protocollo e stessi 26 opcode, ma **le costanti di potenza vanno rimisurate**: il Gen 2 regge più corrente e i valori copiati dal Gen 1 non valgono |
 
 Il Gen 1 eroga in modo misurato **220 / 230 / 237 W** con raffreddamento regolare, ben oltre
 l'etichetta "200 W" del kit. Sul Gen 2 quel numero non è trasferibile.
@@ -358,8 +358,8 @@ Ponte USB-seriale **Silicon Labs CP210x**. `115200 baud, 8N1`, pacchetti da 8 by
 [0xAA] [opcode] [data ×4] [CRC16-XMODEM ×2]
 ```
 
-**21 opcode**, verificati uno a uno contro i metodi reali di `VcpProtocol`
-(l'opcode è l' immediato `ldc.i4.s` prima di `stfld Oper`):
+**26 opcode**, verificati uno a uno contro i metodi reali di `VcpProtocol`, dove l'opcode è
+l'immediato `ldc.i4.s` che precede l'assegnazione del campo `Oper` nella funzione.
 
 | Opcode | Metodo Intel | Ruolo | Pericolo |
 |---|---|---|---|
@@ -412,7 +412,7 @@ o un PID. L'unica sorgente di comandi è il regime selezionato, e ogni sequenza 
 `GetBoardStatus()` di conferma: se il controller non conferma, l'interfaccia dice **"non commutato"**,
 non "fatto".
 
-Ogni modulo è un file Focused: 36 file `.rs`, **24.536 righe**, 26 dipendenze dirette nell'app.
+Ogni modulo è un file Focused: 38 file `.rs`, **24.536 righe**, 26 dipendenze dirette nell'app.
 
 ---
 

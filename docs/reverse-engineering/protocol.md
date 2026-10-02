@@ -43,7 +43,8 @@ let crc = CRC_16_XMODEM.checksum(&buffer);
 
 ## 3. Opcode
 
-**21 opcode**, divisi dal nome del modulo in letture (`get`) e scritture (`set`).
+**26 opcode** implementati: **16 di lettura** nel modulo `get` più `HEART_BEAT`, e
+**10 di scrittura** nel modulo `set`. I due insiemi non si sovrappongono per numero.
 
 ### Letture (`commands::get`)
 
@@ -86,6 +87,23 @@ nulli e effetti opposti a quanto suggerisce il nome.
 
 ---
 
+## 3b. Una discrepanza con il rapporto originale
+
+[`cryo-gen1.md`](cryo-gen1.md) scrive che il protocollo ha "21 opcode su 21", confrontando i
+metodi di `VcpProtocol` del binario vendor con la tabella dei comandi già implementata.
+
+Il confronto regge solo se si conta diversamente. Nell'implementazione corrente gli opcode
+definiti sono **26**, e le due tabelle di questo documento li elencano uno per uno: 16 di lettura
+e 10 di scrittura.
+
+La differenza non è un errore di conteggio da correggere, è una distinzione da fare: `VcpProtocol`
+espone **11 metodi** con opcode associato, mentre il modulo `commands` definisce tutti gli opcode
+che il protocollo usa, comprese le letture raggruppate in un solo opcode. Il numero 21 del rapporto
+originale non è stato verificato né smentito: è un conteggio diverso, su un insieme diverso.
+
+Quello che conta per la sicurezza non è il totale, e resta invariato: `0x18` con dati nulli abilita
+il TEC e `0x1E` con dati nulli è il reset di fabbrica. Nessuno dei due è in sola lettura.
+
 ## 4. Allowlist di sola lettura
 
 Gli opcode che la sonda `probe_opcodes` è autorizzata a inviare sono definiti in `lib.rs:33`:
@@ -99,7 +117,7 @@ const SOLO_LETTURE: &[std::ops::RangeInclusive<u8>] = &[
 ];
 ```
 
-Sono **17 opcode** di lettura. `0x14..=0x17` compaiono in `set` e non in `get`: i due gruppi non
+Sono **16 opcode** di lettura. `0x14..=0x17` compaiono in `set` e non in `get`: i due gruppi non
 sono disgiunti per numero, quindi l'allowlist è scritta a partire dai valori leggibili nella tabella
 dei comandi, non da una supposizione sul layout.
 
