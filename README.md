@@ -106,7 +106,7 @@ funzionamento è corretto, la risposta al carico è più lenta.
 
 | Configurazione | Stato |
 |---|---|
-| **Controller Intel Cryo Gen 1** (`HW 4`, firmware `13.A0`) | **collaudato** su tutto il percorso R1 → R13 |
+| **Controller Intel Cryo Gen 1** (`HW 4`, firmware `13.A0`) | **collaudato** su tutto il percorso R1 → R13. R14 e R15 sono verificate a livello software (315 e 320 test) ma non hanno una verifica fisica completa: manca la risposta del controller a un vero distacco di alimentazione e la risposta fisica al DISABLE |
 | **Cella TEC Gen 2 montata su controller Gen 1** | **collaudata**: è la combinazione usata in questo progetto, riportata in testata come `Gen 1 / TEC 2 attive` |
 | **Controller Intel Cryo Gen 2** | non collaudato qui. Stesso protocollo e stessi 26 opcode, ma **le costanti di potenza vanno rimisurate**: il Gen 2 regge più corrente e i valori copiati dal Gen 1 non valgono |
 
@@ -136,7 +136,7 @@ differenza è nel firmware, non nel protocollo.
 </tr>
 </table>
 
-La **Delta² TEC D-RGB** è la cella usata in tutto il collaudo R1 → R13: le misure di questo
+La **Delta² TEC D-RGB** è la cella usata in tutto il percollaudo R1 → R15: le misure di questo
 documento, il carico di 225 W a COP stimato 0,95 e la stabilizzazione a 112 W a COP 1,70 vengono
 tutti da lì.
 
@@ -525,7 +525,7 @@ Tutto il lavoro è documentato, incluse le ipotesi **smentite**.
 | [`hardware/layout-verticale.md`](docs/hardware/layout-verticale.md) | disposizione a due colonne per monitor verticali, palette dei canali, comportamento degli indicatori |
 | [`architecture/unico-percorso-di-comando.md`](docs/architecture/unico-percorso-di-comando.md) | 12 invarianti, i 4 difetti D1-D4, e cosa il progetto ha deciso di non fare |
 | [`architecture/plans/`](docs/architecture/plans/) | i piani di lavoro che hanno prodotto le correzioni |
-| [`releases/`](docs/releases/) | una nota per ogni build verificata, da R1 a R13, con evidenze e limiti |
+| [`releases/`](docs/releases/) | le note di collaudo delle build verificate, da R1 a R15, con evidenze e limiti |
 | [`README-originale-upstream.md`](docs/README-originale-upstream.md) | il README del progetto originale, per confronto |
 | [`TRADEMARKS.md`](TRADEMARKS.md) | loghi dei produttori, uso nominativo, prodotti citati |
 
