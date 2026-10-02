@@ -209,8 +209,8 @@ un interruttore: sono una sequenza di 3 passi.
 3. GetBoardStatus()            opcode 0x00, per CONFERMARE
 ```
 
-Il passo 3 è quello che rende l'interfaccia onesta: se il controller non conferma, l'interfaccia
-deve dire "non commutato", non "fatto".
+Il passo 3 conferma il regime. Senza conferma dal controller l'interfaccia riporta
+"non commutato" e non "fatto".
 
 Lo **spento** usa un solo comando, `0x18 [1,0,0,0]`, senza `0x14`: su questo bus ogni byte in più
 può essere il reset di fabbrica, e un controller spento non applica comunque un setpoint.

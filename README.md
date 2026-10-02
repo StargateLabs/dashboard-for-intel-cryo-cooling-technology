@@ -23,9 +23,9 @@ margine di condensa +3,7 °C.*
 1. [Il problema](#il-problema)
 2. [Su quali CPU funziona](#su-quali-cpu-funziona)
 3. [Controller supportati](#controller-supportati)
-4. [La scoperta che cambia tutto](#la-scoperta-che-cambia-tutto)
+4. [La modalita non e un comando seriale](#la-modalita-non-e-un-comando-seriale)
 5. [Cosa fa la dashboard](#cosa-fa-la-dashboard)
-6. [Configurazione: tutto personalizzabile](#configurazione-tutto-personalizzabile)
+6. [Configurazione](#configurazione)
 7. [Risultati misurati](#risultati-misurati)
 8. [Cosa NON fa e cosa NON è dimostrato](#cosa-non-fa-e-cosa-nonè-dimostrato)
 9. [Il protocollo in breve](#il-protocollo-in-breve)
@@ -78,7 +78,7 @@ processore viene interrogato per decidere se l'applicazione può partire.
 | **AMD** (AM4, AM5, LGA1700) | il controller TEC è indipendente dal vendor della CPU. Il punto debole sarebbe il PID, risolto sotto |
 | **Qualsiasi CPU che si riesca a modificare e montare il sistema** | ingegneria campione, microcode modificato, BIOS sbloccato, CPU con FUSE aperti: se il sistema parte e la cella TEC è montata, il controller non chiede chi sei |
 
-### Il punto debole sarebbe il PID, ed è risolto
+### La temperatura della CPU nel PID
 
 Il regolatore ha bisogno della temperatura della CPU per correggere il freddo. Il controller la
 riceve con l'opcode `0x19` (`setCpuTemp`), e su una CPU che il produttore non conosce non avrebbe
@@ -91,7 +91,7 @@ La dashboard la legge da **due sorgenti indipendenti dal vendor**, selezionabili
 | **HWiNFO64** | shared memory `Global\HWiNFO_SENS_SM2` | da abilitare in *Settings → General → Shared Memory Support* |
 | **AIDA64** | shared memory `Global\AIDA64_SensorValues`, formato XML | 27 sensori nello screenshot di riferimento |
 
-Entrambe funzionano su Intel **e** su AMD, quindi il PID riceve la temperatura reale su qualsiasi
+Entrambe funzionano su Intel e su AMD, quindi il PID riceve la temperatura reale su qualsiasi
 processore. A parità di priorità viene scelto il **sensore più caldo**, e i sensori **die/core**
 hanno la precedenza sulla lettura generica della CPU: con la CPU che scaldava il TEC, la media dei
 core dice meno del core hotter.
@@ -159,7 +159,7 @@ Le immagini sono rendering ufficiali dei produttori, usati per uso nominativo. C
 
 ---
 
-## La scoperta che cambia tutto
+## La modalita non e un comando seriale
 
 > **Non esiste un opcode "cambia modalità".**
 
@@ -176,11 +176,11 @@ La modalità è lo **stato di un pin GPIO**, letto e scritto dal driver `CCHWApi
 | **< 25 W** per > 10 minuti | l'Unregulated viene sospeso → torna a **Cryo** |
 | **> 25 W** per > 10 minuti | l'Unregulated **continua** |
 
-Questo spiega perché il software Intel *legga* la modalità invece di impostarla: la riga
-`Cooler is in standby mode` è un messaggio di stato, non un'azione. E spiega perché non si può
-aggiungere un interruttore: quel comando non esiste su quel canale.
+Il software Intel *legge* la modalità invece di impostarla: `Cooler is in standby mode` è un
+messaggio di stato. Su quel canale non esiste un comando di commutazione, quindi non è possibile
+aggiungere un interruttore.
 
-### La conseguenza progettuale
+### Come si ottiene un regime
 
 Il regime si ottiene **scrivendo il setpoint offset e poi abilitando il controller**. Il regime è una
 *conseguenza* di quei due comandi:
@@ -217,7 +217,7 @@ Dettaglio completo dell'analisi: [`docs/reverse-engineering/cryo-gen1.md`](docs/
 | **Regimi** | Cryo · Unregulated (offset `-30`) · Standby · Spento, con **dialogo unico** e conferma di regime |
 | **Sicurezza** | guardia anticondensa sul margine `TEC − rugiada`, guardia termica controller, watchdog con disable reale, OCP come **segnale da controllare** (non azione automatica) |
 | **Misure** | piastra, punto di rugiada, umidità, tensione, corrente, watt, duty, temperatura scheda, 14 bit di stato grezzi |
-| **Sensori** | HWiNFO64 shared memory **e** AIDA64, entrambi selezionabili a runtime; priorità ai sensori die/core |
+| **Sensori** | HWiNFO64 shared memory e AIDA64, entrambi selezionabili a runtime; priorità ai sensori die/core |
 | **Grafici** | 8 grafici su asse temporale condiviso, interpolazione 1 s, cache geometria, ~30 fps, stop automatico in Home e nel tray |
 | **Profili** | 3 preset (Silenzioso 60 W / Gaming 120 W / AI 160 W) + profili personali, isteresi ±0,75 °C |
 | **Test** | **320 test passanti** (297 applicazione + 23 libreria), verificati con `cargo test --workspace`; 5 test di integrazione intenzionalmente ignorati perché richiedono hardware collegato o scrivono sul database reale |
@@ -237,7 +237,7 @@ separazione 8 px, badge `CRYOGENIC HAZARD` sempre visibile in testata.
 
 ---
 
-## Configurazione: tutto personalizzabile
+## Configurazione
 
 Nessun parametro di gestione TEC è fissato nel codice. Ogni valore elencato qui è un campo
 pubblico, modificabile a runtime e persistito.
@@ -280,7 +280,7 @@ Su questo hardware (controller Gen 1, cella TEC V2, misure in regime):
 **Metà watt per COP quasi doppio.** Il radiatore riceve molto meno calore. Questo è il risultato
 centrale del lavoro: *a parità di freddo, il punto di funzionamento più basso consuma meno e scalda meno*.
 
-### Due ipotesi iniziali che le misure hanno smentito
+### Misure in conflitto con le prime ipotesi
 
 | Ipotesi iniziale | Verdetto | Evidenza |
 |---|---|---|
@@ -292,7 +292,7 @@ blocco; l'intervento automatico su OCP è stato **limitato a una sola volta** (b
 segnale che scatta a un terzo della potenza nominale non è una protezione e un avviso permanente non
 è un avviso.
 
-### Il limite reale è il lato caldo, non il software
+### Il limite e il lato caldo
 
 Il COP è limitato dal lato caldo. Con lato freddo a 5 °C:
 
@@ -333,19 +333,19 @@ correttezza. È la parte più importante del documento.
   diagnostica.
 - **Non ridistribuisce binari Intel.** Vedi [`SECURITY.md`](SECURITY.md).
 
-### Quattro difetti trovati con la suite verde
+### Difetti risolti in risposta a una revisione del percorso di comando
 
-Una verifica sistematica del 2026-09-29 trovò **quattro difetti mentre i 210 test erano verdi**.
-Nessuno dei quattro era coperto. Da allora il numero di test non viene più usato come prova:
+Una revisione del 29 settembre 2026 ha individuato quattro difetti che la suite di 210 test non
+copriva. Il numero di test non viene usato come unica prova di correttezza.
 
 | # | Difetto | Conseguenza |
 |---|---|---|
-| **D1** | `Tec::new()` mandava `0x1E` (reset di fabbrica) se `BOARD_INIT` non era impostato | a ogni connessione perdevi **PID, setpoint e power cap**. Un limite impostato spariva senza avviso |
-| **D2** | il pulsante abilita scriveva l'offset in proprio | poteva sovrascrivere il `-30` dell'Unregulated mentre il menu mostrava il regime vecchio |
-| **D3** | `tec_abilitato = !LOW_POWER_MODE_ACTIVE` | in Standby, dove il TEC **deve** essere acceso, la guardia perdeva l'autorizzazione a scrivere |
-| **D4** | il margine di condensa non si azzerava su errore | la riga stampava `Margine +3.0 °C OK` in verde **con il controller scollegato da un minuto** |
+| **D1** | `Tec::new()` inviava `0x1E` (reset di fabbrica) quando `BOARD_INIT` non era impostato | a ogni connessione perdeva PID, setpoint e power cap, senza avviso |
+| **D2** | il pulsante di abilitazione scriveva l'offset per conto proprio | poteva sovrascrivere il `-30` dell'Unregulated mentre il menu mostrava il regime precedente |
+| **D3** | `tec_abilitato = !LOW_POWER_MODE_ACTIVE` | in Standby, dove il TEC deve restare acceso, la guardia perdeva l'autorizzazione a scrivere |
+| **D4** | il margine di condensa non si azzerava in caso di errore | il pannello mostrava `Margine +3.0 °C OK` a scheda scollegata da un minuto |
 
-La specifica con le **12 invarianti** che ne deriva è in
+Le 12 invarianti che ne derivano sono specificate in
 [`docs/architecture/unico-percorso-di-comando.md`](docs/architecture/unico-percorso-di-comando.md).
 
 ---
