@@ -16,5 +16,5 @@ chrono = "0.4"
 # porte, quindi il test usa `serialport` per i soli nomi e `serial` (il
 # driver di produzione) per l'apertura e l'interrogazione.
 serialport = "*"
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 dirs = "7"
