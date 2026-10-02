@@ -23,7 +23,7 @@ R13, R14 e R15.
 | 30/09 06:03 | `TEC-20260930` | primo avvio con cella TEC montata |
 | 30/09 06:21 | `GEN1-TEC2` | prima build del binario attuale |
 | 30/09 06:24 | `FINALE` | |
-| 30/09 06:33 | `FINALE-R2` | |
+| 30/09 06:33 | `FINALE-R2` | secondo tentativo della build `FINALE`, **non** la R2 della serie |
 | 30/09 06:45 | `PROFILI-R3` | tre profili di carico |
 | 30/09 06:56 | `GRAFICA-R4` | grafici, animazione a 30 fps |
 | 30/09 07:09 | `GOCCE-R5` | indicatore di condensa |
@@ -50,14 +50,52 @@ Corrisponde al file `cryo_cooler_controller_r116.exe`.
 
 ## Release pubblicate
 
-| Tag | Build | Data dell'eseguibile | SHA256 |
-|---|---|---|---|
-| [`v2.7`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v2.7) | R15 | 02/10 17:10 | `1d6497af…70b481` |
-| [`v2.6`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v2.6) | R14 | 02/10 16:46 | `d3969a6d…025388` |
-| [`v2.5`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v2.5) | R13 | 30/09 15:14 | `3f9460cd…fe0b84` |
+Tutte le 18 build della cartella di collaudo sono pubblicate su GitHub, con l'eseguibile come
+asset e il checksum nelle note.
 
-Solo R13, R14 e R15 sono pubblicati su GitHub. Tutte le build precedenti restano in locale e
-non hanno una release corrispondente.
+### Serie v2 — da R13 in poi
+
+| Tag | Build | Esiguibile | Data | SHA256 |
+|---|---|---|---|---|
+| [`v2.7`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v2.7) | R15 | `StargateCryo-GEN1-TEC2-R15.exe` | 02/10 17:10 | `1d6497af…70b481` |
+| [`v2.6`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v2.6) | R14 | `StargateCryo-GEN1-TEC2-R14.exe` | 02/10 16:46 | `d3969a6d…025388` |
+| [`v2.5`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v2.5) | R13 | `StargateCryo-GEN1-TEC2-R13.exe` | 30/09 15:14 | `3f9460cd…fe0b84` |
+
+### Serie v1 — dalla prima build con TEC a R12
+
+| Tag | Build | Eseguibile | Data | Collaudo |
+|---|---|---|---|---|
+| [`v1.14`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.14) | R12 | `StargateCryo-GEN1-TEC2-R12.exe` | 30/09 08:38 | 311 test |
+| [`v1.13`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.13) | R11, doppio nome | `StargateCryo-Condensa-Preview.exe` | 30/09 08:21 | 311 test |
+| [`v1.12`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.12) | R11 | `StargateCryo-GEN1-TEC2-R11.exe` | 30/09 08:21 | 311 test |
+| [`v1.11`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.11) | R10 | `StargateCryo-GEN1-TEC2-R10.exe` | 30/09 08:13 | 310 test |
+| [`v1.10`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.10) | R9 | `StargateCryo-GEN1-TEC2-R9.exe` | 30/09 08:05 | log, senza nota |
+| [`v1.9`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.9) | R8 | `StargateCryo-GEN1-TEC2-R8.exe` | 30/09 07:56 | log, senza nota |
+| [`v1.8`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.8) | R7 | `StargateCryo-GEN1-TEC2-R7-TERMICA-CANDIDATA.exe` | 30/09 07:42 | log, senza nota |
+| [`v1.7`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.7) | R6 | `StargateCryo-GEN1-TEC2-DESIGN-R6.exe` | 30/09 07:16 | log, senza nota |
+| [`v1.6`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.6) | R5 | `StargateCryo-GEN1-TEC2-GOCCE-R5.exe` | 30/09 07:09 | log, senza nota |
+| [`v1.5`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.5) | R4 | `StargateCryo-GEN1-TEC2-GRAFICA-R4.exe` | 30/09 07:01 | log, senza nota |
+| [`v1.4`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.4) | R3 | `StargateCryo-GEN1-TEC2-PROFILI-R3.exe` | 30/09 06:45 | log, senza nota |
+| [`v1.3`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.3) | — | `StargateCryo-GEN1-TEC2-FINALE-R2.exe` | 30/09 06:33 | nessuna nota |
+| [`v1.2`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.2) | — | `StargateCryo-GEN1-TEC2-FINALE.exe` | 30/09 06:24 | nessuna nota |
+| [`v1.1`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.1) | — | `StargateCryo-GEN1-TEC2.exe` | 30/09 06:21 | nessuna nota |
+| [`v1.0`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.0) | — | `StargateCryo-TEC-20260930.exe` | 30/09 06:03 | nessuna nota |
+
+**`v1.13` e `v1.12` sono lo stesso file.** `StargateCryo-Condensa-Preview.exe` e
+`StargateCryo-GEN1-TEC2-R11.exe` hanno SHA256 identico: è lo stesso eseguibile con due nomi, non
+due versioni. Chi scarica l'anteprima della condensa scarica R11.
+
+**Le prime nove build non hanno una nota di collaudo.** Esistono i log di compilazione da R3 in
+poi, e le note `VERIFICA-RICHIESTE` da R10 in poi. Per le altre sette la data è l'unico dato
+disponibile e le note di rilascio lo dichiarano.
+
+La numerazione della serie parte da `PROFILI-R3`, che è il primo eseguibile con un numero R.
+**R1 e R2 non hanno un eseguibile**: per R1 e R2 esiste solo la nota di lavoro in
+`docs/releases/`. Di conseguenza, il `R2` nel nome del file `FINALE-R2.exe` è un secondo
+tentativo della build `FINALE` e **non** la R2 della serie.
+
+La serie `r81` → `r147`, le quattro build con nome (`TEC-20260930`, `GEN1-TEC2`, `FINALE`,
+`FINALE-R2`) e la serie R1–R2 restano in locale senza un proprio asset di rilascio.
 
 ---
 
