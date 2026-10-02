@@ -1,4 +1,4 @@
-# Build Gen 1 / TEC Gen 2 — riscontri reali e correzioni
+# Build Gen 1 / TEC Gen 2: riscontri reali e correzioni
 
 ## Hardware interrogato
 Controller su COM5: HW 4; firmware 13.A0 (bytes 19,160,3,0). TEC Gen 2 su controller Gen 1, come indicato dall'utente.
@@ -29,8 +29,8 @@ Trace locale: tec-controller.log accanto all'eseguibile, con rotazione intorno a
 La prova completa del nuovo eseguibile finale a carico elevato e prolungato resta da eseguire; non e dimostrato un optimum globale ne una percentuale di risparmio a pari carico.
 
 ## Fonti
-https://github.com/juvgrfunex/cryo-cooler-controller — segnala il mancato funzionamento del limite massimo di potenza.
-https://thermal.ferrotec.com/technology/thermoelectric-reference-guide/thermalRef11/ — modello TEC e dipendenza delle prestazioni da corrente e condizioni termiche.
+https://github.com/juvgrfunex/cryo-cooler-controller, segnala il mancato funzionamento del limite massimo di potenza.
+https://thermal.ferrotec.com/technology/thermoelectric-reference-guide/thermalRef11/, modello TEC e dipendenza delle prestazioni da corrente e condizioni termiche.
 
 ## Uso
 Chiudere l'altra dashboard anche dal tray prima di aprire StargateCryo-GEN1-TEC2-FINALE.exe. Non mantenere due programmi sulla stessa COM5. La dashboard attualmente aperta e raffreddante non e stata chiusa durante il confezionamento della build finale.

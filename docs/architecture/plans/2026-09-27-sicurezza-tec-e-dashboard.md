@@ -1,4 +1,4 @@
-# Sicurezza TEC e rifinitura dashboard — Piano di implementazione
+# Sicurezza TEC e rifinitura dashboard: Piano di implementazione
 
 > **Per worker agentici:** SUB-SKILL RICHIESTA: usa `superpowers:subagent-driven-development` (consigliato) oppure `superpowers:executing-plans` per eseguire questo piano task per task. I passi usano caselle di spunta (`- [ ]`) per il tracciamento.
 
@@ -16,10 +16,10 @@
 - **Mai terminare il controller dell'utente.** Lo spegnimento va implementato nel codice dell'app, non dall'esterno.
 - Hardware: controller **V1** su modulo TEC **V2**. Il V1 **non** ha controllo di pompa/ventole **né** sensore RPM pompa. Questo vale per ogni decisione sulla pompa.
 - Soglie termiche: Standby oltre 80 °C, Shutdown oltre 90 °C, guardia software a 66 °C, banda morta 58–66 °C.
-- Comandi di verifica, tutti già usati con successo:
-  - build: `cd <TMP> && cmd //c b2.bat`
-  - test: `cd <REPO> && cargo test --target-dir target\b2 -p cryo_cooler_controller`
-  - baseline al momento della stesura: **22 test verdi, 0 warning**
+- Comandi di verifica, tutti già usati con successo
+ - build: `cd <TMP> && cmd //c b2.bat`
+ - test: `cd <REPO> && cargo test --target-dir target\b2 -p cryo_cooler_controller`
+ - baseline al momento della stesura: **22 test verdi, 0 warning**
 - Deploy: copiare l'eseguibile in `<ESEGUIBILE>` **solo** se nessun processo lo blocca; usare lo script di attesa descritto nel Task 13.
 - Commenti in italiano, senza accenti (convenzione del file già esistente).
 - Nessun valore di allarme può essere inventato. Se una misurazione non esiste, la regola non si valuta: è la regola introdotta in `alerts.rs` e protetta da test.
@@ -45,7 +45,7 @@
 
 ---
 
-## Fase 0 — Baseline congelata
+## Fase 0: Baseline congelata
 
 - [ ] **Step 1: Congela la baseline**
 
@@ -63,7 +63,7 @@ Il file di backup serve perché i task 2 e 3 toccano lo stesso blocco di codice:
 
 ---
 
-## Fase 1 — Lo spegnimento non deve dipendere da un flag invecchiato
+## Fase 1: Lo spegnimento non deve dipendere da un flag invecchiato
 
 **File:** `cryo_cooler_controller/src/running.rs:674` (shutdown), `running.rs:1252-1259` (errore di battito), `running.rs:1202` (battito ok)
 
@@ -108,13 +108,13 @@ Inizializza `tec_abilitato: false` in `new()`.
 
 - [ ] **Step 3: Imposta e azzera il campo nei due handler**
 
-In `Message::Enable`, ramo `Ok(())`, subito dopo `self.applied_power = start;`:
+In `Message::Enable`, ramo `Ok(())`, subito dopo `self.applied_power = start;`
 
 ```rust
                 self.tec_abilitato = true;
 ```
 
-In `Message::Disable`, dopo la chiamata a `disable()`:
+In `Message::Disable`, dopo la chiamata a `disable()`
 
 ```rust
         self.tec_abilitato = false;
@@ -143,7 +143,7 @@ Expected: 23 passed, 0 failed
 
 ---
 
-## Fase 2 — La pompa: sospendere la protezione, non dichiarare un guasto
+## Fase 2: La pompa: sospendere la protezione, non dichiarare un guasto
 
 **File:** `cryo_cooler_controller/src/running.rs:981-1013`
 
@@ -195,7 +195,7 @@ fn pompa_in_fallo(pump_readable: bool, rpm: f32, stalled: bool) -> bool {
 
 - [ ] **Step 3: Riscrivi il blocco d'emergenza**
 
-Sostituisci l'intera struttura `if !pompa_alta { if !self.pump_emergency_active { … } }` con:
+Sostituisci l'intera struttura `if !pompa_alta { if !self.pump_emergency_active { … } }` con
 
 ```rust
                             // Guarda tutti i casi insieme, non solo l'RPM:
@@ -249,7 +249,7 @@ Expected: 26 passed
 
 ---
 
-## Fase 3 — Un solo proprietario della potenza
+## Fase 3: Un solo proprietario della potenza
 
 **File:** `cryo_cooler_controller/src/running.rs` (5 siti di scrittura: 675, 1176, 1259, 1305, 1360)
 
@@ -307,13 +307,13 @@ Expected: 26 passed
 
 - [ ] **Step 3: Sostituisci i cinque siti**
 
-Ciascuno dei cinque diventa una chiamata a `applica_potenza`, mantenendo **esattamente** la semantica di successo/fallimento che avevano:
+Ciascuno dei cinque diventa una chiamata a `applica_potenza`, mantenendo **esattamente** la semantica di successo/fallimento che avevano
 
 - riga 675 (guardia): `if self.applica_potenza(next) { /* log OK */ }`
-- riga 1176 (emergenza pompa): `self.applica_potenza(lim);` — il testo dell'errore resta quello di `applica_potenza`
+- riga 1176 (emergenza pompa): `self.applica_potenza(lim);`, il testo dell'errore resta quello di `applica_potenza`
 - riga 1259 (watchdog): `self.applica_potenza(WATCHDOG_POWER); self.watchdog_tripped = true;`
 - riga 1305 (OCP): `if self.applica_potenza(ridotto) { self.ocp_mitigated = true; /* log */ }`
-- riga 1360 (soft start): `self.applied_power = start;` — **attenzione**: qui l'hardware è già stato acceso da `enable()`, che ha fatto la propria scrittura. Non chiamare `applica_potenza` o si scrive due volte; lascia l'assegnazione e aggiungi il commento:
+- riga 1360 (soft start): `self.applied_power = start;`, **attenzione**: qui l'hardware è già stato acceso da `enable()`, che ha fatto la propria scrittura. Non chiamare `applica_potenza` o si scrive due volte; lascia l'assegnazione e aggiungi il commento
 
 ```rust
         // `enable()` ha gia' scritto la potenza in hardware e ha avuto
@@ -322,7 +322,7 @@ Ciascuno dei cinque diventa una chiamata a `applica_potenza`, mantenendo **esatt
 
 - [ ] **Step 4: Il soffitto non è più uno snapshot**
 
-`max_power_before_emergency` veniva impostato al cap **prima** dell'emergenza e poi usato con `.min()` per "limitare", ma il valore memorizzato era il più alto, quindi il `min` non limitava nulla. Sostituisci ogni `.min(self.max_power_before_emergency)` con:
+`max_power_before_emergency` veniva impostato al cap **prima** dell'emergenza e poi usato con `.min()` per "limitare", ma il valore memorizzato era il più alto, quindi il `min` non limitava nulla. Sostituisci ogni `.min(self.max_power_before_emergency)` con
 
 ```rust
             // Il tetto effettivo e' il cap dell'utente ridotto, se c'e', dal
@@ -354,7 +354,7 @@ Expected: 28 passed
 
 ---
 
-## Fase 4 — La firma termica vede i cali lenti
+## Fase 4: La firma termica vede i cali lenti
 
 **File:** `cryo_cooler_controller/src/pumpwatch.rs`
 
@@ -405,7 +405,7 @@ Expected: 28 passed
             campioni_lenti: 60,
 ```
 
-In `poll()`, dopo il criterio breve, aggiungi quello lento sulla stessa finestra:
+In `poll()`, dopo il criterio breve, aggiungi quello lento sulla stessa finestra
 
 ```rust
         // Criterio lento: vale quando il guasto non e' rapido. Un loop
@@ -458,7 +458,7 @@ Expected: 30 passed
 
 ---
 
-## Fase 5 — La guardia di HWiNFO va prima della lettura
+## Fase 5: La guardia di HWiNFO va prima della lettura
 
 **File:** `cryo_cooler_controller/src/hwinfo.rs:233-249`
 
@@ -500,7 +500,7 @@ Expected: 31 passed
 
 ---
 
-## Fase 6 — Un sensore che non risponde non può accendere la guardia
+## Fase 6: Un sensore che non risponde non può accendere la guardia
 
 **File:** `cryo_cooler_controller/src/running.rs:531-542`
 
@@ -549,7 +549,7 @@ Expected: 33 passed
 
 ---
 
-## Fase 7 — F11 deve funzionare anche a regime
+## Fase 7: F11 deve funzionare anche a regime
 
 **File:** `cryo_cooler_controller/src/main.rs:581, 679-701, 1136-1142, 1245-1251`
 
@@ -607,7 +607,7 @@ Expected: 33 passed
 
 ---
 
-## Fase 8 — La firma RTSS era invertita
+## Fase 8: La firma RTSS era invertita
 
 **File:** `cryo_cooler_controller/src/overlay.rs:47`
 
@@ -646,7 +646,7 @@ Sostituisci ogni `RTSS_SIGNATURE` con `RTSS_FIRMA` e correggi la riga 24.
 ```
 
 Se `VirtualQuery` non dà la dimensione della vista, usa la somma degli
-offset dichiarati nella struttura invece di `RegionSize`:
+offset dichiarati nella struttura invece di `RegionSize`
 
 ```rust
     // Somma degli offset reali dei campi che si va a scrivere: e' l'unica
@@ -660,7 +660,7 @@ Expected: 33 passed
 
 ---
 
-## Fase 9 — Cooldown coerenti col tempo reale
+## Fase 9: Cooldown coerenti col tempo reale
 
 **File:** `cryo_cooler_controller/src/running.rs:44, 53, 813`
 
@@ -688,7 +688,7 @@ Expected: 33 passed
 
 ---
 
-## Fase 10 — Non perdere dati in silenzio
+## Fase 10: Non perdere dati in silenzio
 
 **File:** `cryo_cooler_controller/src/config.rs:120-151`, `session_db.rs:111-136`, `running.rs:326-330`
 
@@ -753,7 +753,7 @@ Expected: 33 passed
 
 ---
 
-## Fase 11 — La sonda degli opcode non deve poter resettare la scheda
+## Fase 11: La sonda degli opcode non deve poter resettare la scheda
 
 **File:** `cryo_cooler_controller_lib/src/lib.rs:79-104`
 
@@ -794,7 +794,7 @@ Expected: 33 passed
 
 ---
 
-## Fase 12 — Colori semantici per le categorie
+## Fase 12: Colori semantici per le categorie
 
 **File:** `cryo_cooler_controller/src/main.rs` (modulo `palette`), `running.rs`
 
@@ -802,7 +802,7 @@ Expected: 33 passed
 (media RGB 71/119/147, canale R variato di 234), non maschere monocrome. Non
 posso tingerle senza rovinarle, e non posso generare artwork nuovo di qualità
 da codice. Quello che è invece alla mia portata ed è ciò che l'utente ha
-chiesto in modo utile: **un colore semantico stabile per ogni categoria**,
+chiesto in modo utile: **un colore semantico stabile per ogni categoria**
 così che la dashboard si legga a colori senza dover decifrare ogni icona.
 
 - [ ] **Step 1: Aggiungi i token al palette**
@@ -849,14 +849,14 @@ così che la dashboard si legga a colori senza dover decifrare ogni icona.
     }
 ```
 
-Usa `intestazione_sezione` con: `SEM_TEMPERATURA` per le temperature,
+Usa `intestazione_sezione` con: `SEM_TEMPERATURA` per le temperature
 `SEM_POTENZA` per potenza e tensione, `SEM_CIRCOLAZIONE` per pompa e
 condensazione, `SEM_PROTEZIONE` per allarmi e watchdog, `SEM_CARICO` per
 carico e profili.
 
 - [ ] **Step 3: Le notifiche usano già i token**
 
-`Gravita::colore()` in `running.rs` va fatto puntare a `SEM_RISHIO`,
+`Gravita::colore()` in `running.rs` va fatto puntare a `SEM_RISHIO`
 `SEM_POTENZA`, `SEM_CIRCOLAZIONE` invece dei grezzi, così avvisi e intestazioni
 condividono lo stesso vocabolario di colori.
 
@@ -865,7 +865,7 @@ Expected: 33 passed
 
 ---
 
-## Fase 13 — Collaudo e pubblicazione
+## Fase 13: Collaudo e pubblicazione
 
 - [ ] **Step 1: Verifica completa**
 
@@ -907,7 +907,7 @@ Expected: l'hash del file pubblicato coincide con quello di r28.
 CRYO_COMMISSIONING=1
 ```
 
-Verifica che il log registri, nell'ordine: la discesa per la guardia termica,
+Verifica che il log registri, nell'ordine: la discesa per la guardia termica
 il comportamento del limitatore pompa, e l'eventuale ripristino. Un
 collaudo che **non** produce la discesa a 5 °C/min significa che la nuova
 firma lenta non sta vedendo i campioni: controlla `campioni_lenti`.
@@ -931,7 +931,7 @@ C1, C2, H2, H3, H4 → Fase 11 e Fase 6; 1.1 (shutdown) → Fase 1;
 3.1, 3.2 (F11) → Fase 7; 4.1, 4.2 (RTSS) → Fase 8; 2.1 (env var) → Fase 10;
 5.2, 5.3, 5.4, 5.5 → Fase 10; 6.1, 6.2, 6.3 → **non coperti**.
 
-**Lacune dichiarate.** `autostart.rs` (percorso senza spazi non quotato,
+**Lacune dichiarate.** `autostart.rs` (percorso senza spazi non quotato
 riparazione che disattiva l'avvio automatico) e il blocco senza timeout sulla
 pipe Discord restano **fuori** da questo piano: sono difetti reali, ma nessuno
 dei due può danneggiare l'hardware, e il secondo è inattivo finché il
@@ -942,8 +942,8 @@ test citano `Costrutto::di_test()`: va creato come parte della Fase 1 come
 costruttore di test in `running.rs`, con un `impl` separato dietro
 `#[cfg(test)]`.
 
-**Coerenza dei tipi.** `applica_potenza(&mut self, u8) -> bool`,
-`pompa_in_fallo(bool, f32, bool) -> bool`,
-`tec_abilitato_software(&self) -> bool`, `Gravita::{Critica, Avviso, Info}`,
+**Coerenza dei tipi.** `applica_potenza(&mut self, u8) -> bool`
+`pompa_in_fallo(bool, f32, bool) -> bool`
+`tec_abilitato_software(&self) -> bool`, `Gravita::{Critica, Avviso, Info}`
 `Regime::Invalido`, `SEM_*` sono definiti una volta sola e usati con la stessa
 firma ovunque.

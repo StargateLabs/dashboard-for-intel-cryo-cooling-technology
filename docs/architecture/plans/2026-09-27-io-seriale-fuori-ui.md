@@ -1,4 +1,4 @@
-# I/O seriale fuori dal thread UI — Piano di esecuzione
+# I/O seriale fuori dal thread UI: Piano di esecuzione
 
 > **Per worker agentici:** SUB-SKILL: `superpowers:executing-plans`. Ogni fase si esegue, si compila e si testa **prima** di passare alla successiva. Una fase che rompe riporta il backup di quella fase sola.
 
@@ -16,7 +16,7 @@ Da qui le due regole di questa esecuzione: **un passo per volta, con l'editor e 
 
 ---
 
-## Fase 1 — Idraulica: guardia e campi
+## Fase 1: Idraulica: guardia e campi
 
 Nessun comportamento cambia: solo gli strumenti per arrivarci.
 
@@ -26,32 +26,32 @@ Nessun comportamento cambia: solo gli strumenti per arrivarci.
 - [ ] Sostituire i `self.tec.` con `self.tec().` **eccetto** `monitor()` e `hear_beat()`.
 - [ ] Compilare: 0 error, 0 warning. A questo punto il codice non gira ancora, perché i due match chiamerebbero `self.tec()`.
 
-## Fase 2 — Il thread di polling
+## Fase 2: Il thread di polling
 
 - [ ] In `new()`: avvolgere `tec` nell'`Arc<Mutex<_>>`, creare i due canali, lanciare il thread `cryo-tec-poll`.
 - [ ] Nel thread: `recv()` in loop, lock, `monitor()` e `hear_beat()`, `send(PollResult)`, uscita se la UI non ascolta più.
 - [ ] Compilare: 0 error, 0 warning, 44 test verdi. Il thread gira ma nessuno lo usa: si può uccidere e riavviare senza effetti.
 
-## Fase 3 — Estrarre il ramo `Ok` del monitor
+## Fase 3: Estrarre il ramo `Ok` del monitor
 
 - [ ] **Con l'editor**: tagliare il corpo di `Ok(data) => { … }` e incollarlo in `fn applica_campione(&mut self, data: MonitoringData)`, ricavando `Ok(data) => {` dal nome del braccio.
 - [ ] Il corpo diventa `match self.applica_risultato_poll(...)`? No: in questa fase il match chiama ancora i metodi.
 - [ ] Compilare: 0 error. Se il file ha graffe non bilanciate, il ripristino è **solo** di questa fase.
 
-## Fase 4 — Estrarre `Err` del monitor e tutto il battito
+## Fase 4: Estrarre `Err` del monitor e tutto il battito
 
 - [ ] `applica_errore_monitor(&mut self, err: &str)`
 - [ ] `applica_heartbeat(&mut self, status: TecStatus)`
 - [ ] `applica_errore_heartbeat(&mut self, err: &str)`
 - [ ] Compilare: 0 error, 44 test verdi.
 
-## Fase 5 — Scambiare i `match` con raccolta e richiesta
+## Fase 5: Scambiare i `match` con raccolta e richiesta
 
 - [ ] Nel tick, al posto dei due `match`: `raccogli_poll()` → `applica_risultato_poll`, poi la richiesta se `should_update() && !poll_in_flight`.
 - [ ] Compilare: 0 error, 44 test verdi.
 - [ ] **Il punto da verificare a mano:** il watchdog deve ancora contare i fallimenti, l'emergenza pompa deve ancora reagire, la guardia termica deve ancora scrivere. Sono dentro i metodi estratti, quindi se i test passano e il codice è identico, lo sono.
 
-## Fase 6 — Verifica e build
+## Fase 6: Verifica e build
 
 - [ ] Build forzato (senza cache): 0 warning.
 - [ ] `cargo test`: 37 + 7 verdi.

@@ -1,4 +1,4 @@
-# Un solo percorso di comando — Piano di implementazione
+# Un solo percorso di comando: Piano di implementazione
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -18,7 +18,7 @@
 - **Solo 4 test possono cambiare**, e sono già dichiarati in Spec §5.1. Un quinto test che cambia è una regressione e va fermata.
 - **Protocollo intoccabile:** `0x14`, `0x18`, il loro ordine, `payload_alimentazione()` e la allowlist di sola lettura non si modificano. Sono verificati.
 - **`running.rs` non si sposta e non si divide.** È escluso dalla specifica di proposito.
-- **I commenti che spiegano un bug passato non si cancellano** (I12). Se un commento diventa falso, si corregge — non si rimuove.
+- **I commenti che spiegano un bug passato non si cancellano** (I12). Se un commento diventa falso, si corregge, non si rimuove.
 - **R84 non si tocca mai:** `<ESEGUIBILI>\cryo_cooler_controller.exe`, MD5 `849d2ebb9c544ec00425092b93dd2310`.
 - **Il commento importante sul protocollo:** `Tec::new` non deve poter emettere `0x1E` in nessun caso, nemmeno su una board non inizializzata.
 
@@ -30,7 +30,7 @@
 |---|---|---|
 | `cryo_cooler_controller_lib/src/lib.rs` | Trasporto seriale, protocollo, `Tec` | Task 1, 2 |
 | `cryo_cooler_controller/src/commutazione.rs` | `Regime`, `PianoCambio`, guardia | Task 2, 3, 5 |
-| `cryo_cooler_controller/src/certezza.rs` | **NUOVO** — il tipo a tre stati | Task 2 |
+| `cryo_cooler_controller/src/certezza.rs` | **NUOVO**, il tipo a tre stati | Task 2 |
 | `cryo_cooler_controller/src/modalita.rs` | `Modalita`, `modalita_corrente` | Task 2, 4 |
 | `cryo_cooler_controller/src/attore_tec.rs` | Coda e priorità delle richieste | Task 3 |
 | `cryo_cooler_controller/src/running.rs` | Stato della UI, `update`, `view` | Task 3, 4, 5 |
@@ -48,7 +48,7 @@
 - Test: in-module, `cryo_cooler_controller_lib/src/lib.rs`
 
 **Interfaces:**
-- Produce: `pub fn serve_reset_alla_connessione(status: TecStatus) -> bool` — decisione pura, testabile senza porta seriale.
+- Produce: `pub fn serve_reset_alla_connessione(status: TecStatus) -> bool`, decisione pura, testabile senza porta seriale.
 - Produce: `fn reset(&mut self)` resta privata, ma **non viene più chiamata da `new`**.
 
 **Perché una funzione e non un test diretto:** `Tec::new` ha bisogno di una porta seriale vera. La decisione *"serve il reset?"* è logica pura, quindi la si estrae e la si testa da sola. È lo stesso criterio già usato per `payload_alimentazione` e `guardia_anticondensa`.
@@ -96,11 +96,11 @@ mod test_reset_alla_connessione {
 - [ ] **Step 2: esegui e verifica che fallisce**
 
 Run: `cargo test -p cryo_cooler_controller_lib reset_alla_connessione`
-Expected: **errore di compilazione** — `cannot find function serve_reset_alla_connessione`. È il giusto rosso: la funzione non esiste.
+Expected: **errore di compilazione**, `cannot find function serve_reset_alla_connessione`. È il giusto rosso: la funzione non esiste.
 
 - [ ] **Step 3: implementazione minima**
 
-Cancella da `Tec::new` il blocco `if !status.contains(TecStatus::BOARD_INIT) { tec.reset()?; }`, lasciando il solo `hear_beat` di prova. Poi, **fuori dall'`impl`, accanto a `payload_alimentazione`**:
+Cancella da `Tec::new` il blocco `if !status.contains(TecStatus::BOARD_INIT) { tec.reset()?; }`, lasciando il solo `hear_beat` di prova. Poi, **fuori dall'`impl`, accanto a `payload_alimentazione`**
 
 ```rust
 /// Se aprire una connessione debba emettere il reset di fabbrica.
@@ -155,10 +155,10 @@ Atteso: `196 passed` + `14 passed`, 0 falliti. Nessun test esistente è stato to
 
 **La decisione di progetto che conta.** Il secondo argomento di `modalita_corrente` è oggi `poll_in_flight || applied_power > 0 || tec_abilitato`: tre cose diverse, una delle quali (`tec_abilitato`) **è il difetto D3**. Sostituirlo con un OR diverso sarebbe rifare lo stesso errore in forma nuova.
 
-La scomposizione corretta distingue due grandezze che oggi sono mescolate:
+La scomposizione corretta distingue due grandezze che oggi sono mescolate
 
-- **"non abbiamo ancora letto niente"** — fatto di *sessione*, non del dispositivo. È l'unica ragione legittima per mostrare `Offline` invece di `Spento`. Diventa l'unico argomento.
-- **"il TEC eroga potenza"** — fatto del *dispositivo*, ed è la nuova funzione derivata.
+- **"non abbiamo ancora letto niente"**, fatto di *sessione*, non del dispositivo. È l'unica ragione legittima per mostrare `Offline` invece di `Spento`. Diventa l'unico argomento.
+- **"il TEC eroga potenza"**, fatto del *dispositivo*, ed è la nuova funzione derivata.
 
 - [ ] **Step 1: il test che fallisce, in `certezza.rs`**
 
@@ -222,7 +222,7 @@ mod test {
 - [ ] **Step 2: verifica il rosso**
 
 Run: `cargo test -p cryo_cooler_controller certezza`
-Expected: errore di compilazione — `cannot find type Certezza`, `cannot find method eroga_potenza`, `cannot find function da_stato_certainza`.
+Expected: errore di compilazione, `cannot find type Certezza`, `cannot find method eroga_potenza`, `cannot find function da_stato_certainza`.
 
 - [ ] **Step 3: `certezza.rs`**
 
@@ -298,7 +298,7 @@ pub fn puo_scrivere(certezza: Certezza) -> bool {
     }
 ```
 
-e un metodo che delega, per non avere due punti di verita:
+e un metodo che delega, per non avere due punti di verita
 
 ```rust
     pub fn da_stato_certainza(status: TecStatus) -> (Self, crate::certezza::Certezza) {
@@ -318,13 +318,13 @@ pub fn modalita_corrente(status: TecStatus, mai_lett: bool) -> Modalita {
 }
 ```
 
-`Modalita::da_regime` mappa `Regime -> Modalita`: `Standby`, `Cryo`,
+`Modalita::da_regime` mappa `Regime -> Modalita`: `Standby`, `Cryo`
 `Unregulated`, `Spento`. Aggiungilo come funzione pubblica in `modalita.rs` e
 falla coprire da un test che enumera i quattro casi.
 
 - [ ] **Step 6: `tec_abilitato` diventa funzione in `running.rs`**
 
-Sostituisci il campo `tec_abilitato: bool` con:
+Sostituisci il campo `tec_abilitato: bool` con
 
 ```rust
     /// Il TEC eroga potenza *adesso*. Derivato, mai memorizzato.
@@ -357,24 +357,24 @@ stato dichiarato in Spec §5.1.
 ## Task 3: un solo percorso di scrittura, menu al posto del pulsante
 
 **Files:**
-- Modify: `cryo_cooler_controller/src/attore_tec.rs` — rimuovere `Richiesta::Enable`, `Richiesta::Disable`, `Scritto::Enable`, `Scritto::Disable`, `accende_il_tec`
-- Modify: `cryo_cooler_controller/src/main.rs` — rimuovere `Message::Enable`, `Message::Disable`
-- Modify: `cryo_cooler_controller/src/running.rs:2659-2704` — rimuovere i due handler
-- Modify: `cryo_cooler_controller/src/running.rs:3440-3492` (`pulsante_tec`) — il menu al posto del tasto
-- Modify: `cryo_cooler_controller/src/running.rs:1574-1790` (`view_menu_modalita`) — estrarre e spostare
+- Modify: `cryo_cooler_controller/src/attore_tec.rs`, rimuovere `Richiesta::Enable`, `Richiesta::Disable`, `Scritto::Enable`, `Scritto::Disable`, `accende_il_tec`
+- Modify: `cryo_cooler_controller/src/main.rs`, rimuovere `Message::Enable`, `Message::Disable`
+- Modify: `cryo_cooler_controller/src/running.rs:2659-2704`, rimuovere i due handler
+- Modify: `cryo_cooler_controller/src/running.rs:3440-3492` (`pulsante_tec`), il menu al posto del tasto
+- Modify: `cryo_cooler_controller/src/running.rs:1574-1790` (`view_menu_modalita`), estrarre e spostare
 - Test: `cryo_cooler_controller/src/attore_tec.rs`
 
 **Interfaces:**
 - Consumes: `Regime`, `certezza::regime_e_certezza` (Task 2)
-- Produce: `fn pulsante_regime(&self, etichetta, sottotitolo, msg, colore, attivo) -> Button<'_, Message>` — estratto da closure
+- Produce: `fn pulsante_regime(&self, etichetta, sottotitolo, msg, colore, attivo) -> Button<'_, Message>`, estratto da closure
 
 **Estrazione obbligatoria.** `pulsante_regime` oggi è una **closure locale** dentro
 `view_menu_modalita` (`running.rs:1665`). Il menu deve ora essere renderizzato in
 `pulsante_tec`, che è un'altra funzione. Senza estrazione si copia il codice in
-due punti e le due copie divergono — che è esattamente il difetto che questa fase
+due punti e le due copie divergono, che è esattamente il difetto che questa fase
 sta chiudendo.
 
-- [ ] **Step 1: il test che fallisce — la priorità, portata sul percorso nuovo**
+- [ ] **Step 1: il test che fallisce: la priorità, portata sul percorso nuovo**
 
 ```rust
     /// **Il blackout hardware, sul percorso che resta.**
@@ -401,12 +401,12 @@ un booleano) e la variante che usa sparisce.
 - [ ] **Step 2: verifica il rosso**
 
 Run: `cargo test -p cryo_cooler_controller blackout`
-Expected: rosso — `Richiesta::Enable` non è ancora costruibile in questa forma, o
+Expected: rosso, `Richiesta::Enable` non è ancora costruibile in questa forma, o
 il test non esiste. Poi il verde arriva dalla fase 3 dell'implementazione.
 
 - [ ] **Step 3: rimuovi il percorso vecchio**
 
-In `attore_tec.rs`: cancella le varianti `Richiesta::Enable`, `Richiesta::Disable`,
+In `attore_tec.rs`: cancella le varianti `Richiesta::Enable`, `Richiesta::Disable`
 `Scritto::Enable`, `Scritto::Disable`, il metodo `accende_il_tec`, e i due rami di
 `esegui` che le trattano. In `main.rs`: cancella `Message::Enable` e
 `Message::Disable`. In `running.rs:2659-2704`: cancella i due handler.
@@ -417,7 +417,7 @@ modulo. Se lo cancelli, l'app si chiude e lascia il TEC acceso.
 
 - [ ] **Step 4: estrai `pulsante_regime` e sposta il menu**
 
-Estrai la closure (`running.rs:1665-1686`) in un metodo:
+Estrai la closure (`running.rs:1665-1686`) in un metodo
 
 ```rust
     /// Un pulsante di regime.
@@ -453,7 +453,7 @@ Estrai la closure (`running.rs:1665-1686`) in un metodo:
     }
 ```
 
-Gli stili disponibili in `btn` sono **solo** `primary`, `glass`, `secondary`,
+Gli stili disponibili in `btn` sono **solo** `primary`, `glass`, `secondary`
 `danger`: il modulo e' dentro `main.rs`, non un file `btn.rs` a se' stante, e non
 esiste uno stile "attivo".
 
@@ -464,14 +464,14 @@ pulsanti del regime e **non toccare il `grafico`**: stessa `Column`, stessa
 Rimuovi `modalita_block` dalla sua posizione attuale (`running.rs:3789`) e la
 dichiarazione della sua intestazione. Conserva nel nuovo posto: i quattro
 pulsanti, `esito_commutazione`, `MODALITA_NOTA` e il pulsante "Torna a Cryo" che
-compare in Unregulated — è una via d'uscita.
+compare in Unregulated, è una via d'uscita.
 
 - [ ] **Step 5: verde e checkpoint**
 
 ```bash
 cargo test 2>&1 | grep -E "test result"
 ```
-Attesi: `195 passed` + `14 passed` — **un test in meno**, perché ne hai eliminato
+Attesi: `195 passed` + `14 passed`, **un test in meno**, perché ne hai eliminato
 uno tautologico. Se il numero non scende di uno, non hai eliminato quello che
 dovevi.
 
@@ -601,12 +601,12 @@ pub const SOGLIA_CONDENSA: f32 = 1.0;
 In `running.rs`: `commutazione_richiesta` non chiama più `guardia_anticondensa`.
 Se `serve_conferma(self.last_cond_margin)` è vero, imposta
 `self.in_attesa = InAttesa::Conferma { regime, avviso }` e **ritorna senza
-scrivere**. Un nuovo handler `Message::ConfermaSpedizione` rivalida il margine e,
+scrivere**. Un nuovo handler `Message::ConfermaSpedizione` rivalida il margine e
 se non serve più conferma, scrive. `Message::Annulla` mette `in_attesa` a
 `Nessuna` **prima** di `chiedi_unregulated` nell'ordine della catena, perché è
 l'unico stato pendente che può scrivere.
 
-Aggiungi in cima ai quattro handler di regime la guardia:
+Aggiungi in cima ai quattro handler di regime la guardia
 
 ```rust
 Message::CommutaCryo | Message::CommutaStandby
@@ -624,7 +624,7 @@ Message::CommutaCryo | Message::CommutaStandby
 cargo test 2>&1 | grep -E "test result"
 ```
 
-- [ ] **Step 4: l'anteprima — premere sapendo la conseguenza**
+- [ ] **Step 4: l'anteprima: premere sapendo la conseguenza**
 
 Il dialogo non chiede solo "confermi?". Mostra cosa succederà. Questo è il pezzo
 che rende il pulsante una previsione e non un interruttore, ed è nella specifica
@@ -708,7 +708,7 @@ cargo test 2>&1 | grep -E "test result"
 
 - [ ] **Step 1: le due passate, di nuovo**
 
-Passata A — *cosa scrive il controller*: da `Tec::new` all'ultimo byte. Passata B —
+Passata A, *cosa scrive il controller*: da `Tec::new` all'ultimo byte. Passata B,
 *cosa crede l'operatore*: dall'etichetta al numero. Devono concordare. La passata
 B è quella che cerca i difetti **introdotti** dalle correzioni, che la A non
 vede perché cerca solo quelli noti.
@@ -727,10 +727,10 @@ Zero errori, zero warning nuovi. Il warning preesistente in
 CARGO_TARGET_DIR=target/r117 cargo build --release
 ```
 Copia in `<ESEGUIBILI>\cryo_cooler_controller_r117.exe`.
-Verifica con `md5sum` che `cryo_cooler_controller.exe` (r84) sia **invariato**:
+Verifica con `md5sum` che `cryo_cooler_controller.exe` (r84) sia **invariato**
 `849d2ebb9c544ec00425092b93dd2310`.
 
 - [ ] **Step 4: aggiorna la specifica**
 
-Segna le fasi completate e annota i risultati della Fase 0 — in particolare quali
+Segna le fasi completate e annota i risultati della Fase 0, in particolare quali
 celle della tabella delle misure hardware sono state riempite e quali no.

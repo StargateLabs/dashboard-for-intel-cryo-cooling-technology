@@ -1,4 +1,4 @@
-# Completamento sicurezza e rifinitura — Piano residuo
+# Completamento sicurezza e rifinitura: Piano residuo
 
 > **Per worker agentici:** SUB-SKILL RICHIESTA: `superpowers:executing-plans` per l'esecuzione inline, oppure `superpowers:subagent-driven-development` per le fasi indipendenti.
 
@@ -8,7 +8,7 @@
 
 **Stack tecnologico:** Rust, iced 0.13.1, rusqlite 0.31, serde_json, plotters.
 
-**Specifica:** questo file. Per il protocollo Delta² non esiste documentazione pubblica — verificato con ricerca online il 2026-09-27: nessuna fonte descrive la maschera di stato a 18 bit. Ogni assunzione sul firmware va quindi trattata come non verificata e mai usata per spegnere l'hardware.
+**Specifica:** questo file. Per il protocollo Delta² non esiste documentazione pubblica, verificato con ricerca online il 2026-09-27: nessuna fonte descrive la maschera di stato a 18 bit. Ogni assunzione sul firmware va quindi trattata come non verificata e mai usata per spegnere l'hardware.
 
 ## Vincoli globali
 
@@ -19,7 +19,7 @@
 
 ---
 
-## Fase A — L'auto mode non deve raffreddare di meno quando non sa
+## Fase A: L'auto mode non deve raffreddare di meno quando non sa
 
 **File:** `cryo_cooler_controller/src/automanager.rs`, `cryo_cooler_controller/src/running.rs`
 
@@ -70,7 +70,7 @@
 
 ---
 
-## Fase B — Non perdere dati in silenzio
+## Fase B: Non perdere dati in silenzio
 
 **File:** `cryo_cooler_controller/src/config.rs`, `session_db.rs`, `running.rs`
 
@@ -78,7 +78,7 @@
 
 - [ ] **Step 1: un config illeggibile non deve cancellare i profili**
 
-In `config.rs::load()`, oggi un errore di parsing viene ingoiato e `load()` restituisce i profili predefiniti. Il `save()` successivo scrive quelli **sopra** l'unica copia dei profili dell'utente. Copia il file altrove prima di sostituirlo:
+In `config.rs::load()`, oggi un errore di parsing viene ingoiato e `load()` restituisce i profili predefiniti. Il `save()` successivo scrive quelli **sopra** l'unica copia dei profili dell'utente. Copia il file altrove prima di sostituirlo
 
 ```rust
             Err(e) => {
@@ -95,7 +95,7 @@ In `config.rs::load()`, oggi un errore di parsing viene ingoiato e `load()` rest
 
 - [ ] **Step 2: un database non aperto deve dirlo**
 
-`SessionDb::is_open()` esiste e non viene mai chiamato. In `running.rs::new()`:
+`SessionDb::is_open()` esiste e non viene mai chiamato. In `running.rs::new()`
 
 ```rust
             session_db: {
@@ -113,7 +113,7 @@ In `config.rs::load()`, oggi un errore di parsing viene ingoiato e `load()` rest
 
 - [ ] **Step 3: il VACUUM non va sul thread della UI**
 
-`prune_old_sessions(50)` chiama `VACUUM`, che riscrive l'intero file e chiede circa il doppio dello spazio libero. Gira dentro `open()`, quindi dentro `new()`, quindi sul thread iced al momento della connessione: secondi di finestra bloccata a ogni avvio, crescenti con il database. Spostalo in un metodo esplicito chiamato una volta dopo la connessione, e solo se serve:
+`prune_old_sessions(50)` chiama `VACUUM`, che riscrive l'intero file e chiede circa il doppio dello spazio libero. Gira dentro `open()`, quindi dentro `new()`, quindi sul thread iced al momento della connessione: secondi di finestra bloccata a ogni avvio, crescenti con il database. Spostalo in un metodo esplicito chiamato una volta dopo la connessione, e solo se serve
 
 ```rust
     /// Potatura delle sessioni vecchie, da chiamare **fuori** dal percorso
@@ -132,7 +132,7 @@ In `config.rs::load()`, oggi un errore di parsing viene ingoiato e `load()` rest
 
 ---
 
-## Fase C — Colori semantici per categoria
+## Fase C: Colori semantici per categoria
 
 **File:** `cryo_cooler_controller/src/main.rs` (modulo `palette`), `running.rs`
 
@@ -193,7 +193,7 @@ Applica a: temperature → `SEM_TEMPERATURA`; potenza e tensione → `SEM_POTENZ
 
 ---
 
-## Fase D — Build e pubblicazione
+## Fase D: Build e pubblicazione
 
 - [ ] **Step 1: verifica finale completa**
 
@@ -232,6 +232,6 @@ Scheda **AMD Radeon RX 7900 XTX**: `nvidia-smi` non serve. Gestione Attività �
 
 ## Autoverifica
 
-**Copertura.** Le quattro lacune del piano precedente sono coperte: A (auto mode fail-closed), B (config/DB), C (colori), D (deploy). Le due lacune dichiarate nel piano precedente — `autostart.rs` e la pipe Discord senza timeout — restano **fuori** e sono ripetute qui perché non è giusto farle sparire fra un piano e l'altro: sono difetti reali, nessuno dei due può danneggiare l'hardware, e il secondo è inattivo finché il `client_id` è un segnaposto.
+**Copertura.** Le quattro lacune del piano precedente sono coperte: A (auto mode fail-closed), B (config/DB), C (colori), D (deploy). Le due lacune dichiarate nel piano precedente: `autostart.rs` e la pipe Discord senza timeout, restano **fuori** e sono ripetute qui perché non è giusto farle sparire fra un piano e l'altro: sono difetti reali, nessuno dei due può danneggiare l'hardware, e il secondo è inattivo finché il `client_id` è un segnaposto.
 
 **Rischio dichiarato.** `BOARD_TEMP_OK` resta non verificato: nessuna fonte online descrive il protocollo. Per questo la Fase 6 precedente degrada a 30% invece di spegnere, e `resp.op_code == op` nella sonda è sempre `false` (non sempre `true` come riportava la revisione: `send_cmd_once` accetta solo risposte con opcode `richiesta + 127`, che non può mai coincidere). Entrambi da risolvere con l'hardware in mano, non con una ricerca.

@@ -1,4 +1,4 @@
-# Correzioni gestione TEC — 30 settembre 2026
+# Correzioni gestione TEC: 30 settembre 2026
 
 ## Difetti risolti
 - La commutazione non impostava `Commutazione::Richiesta`: gli ACK non potevano confermare il comando corrente.

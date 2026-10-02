@@ -1,11 +1,11 @@
-# Analisi e ottimizzazione della cella Peltier — TEC CryoCooler
+# Analisi e ottimizzazione della cella Peltier: TEC CryoCooler
 
 Data: 2026-09-28 · Hardware: controller Delta², modulo TEC V2, soglia Standby 80 °C, shutdown 90 °C
 
 ## Scopo
 
 Capire dove si perde prestazione e dove si produce calore inutile, usando **solo misure che
-il programma legge già** (`tec_voltage`, `tec_current`, `tec_power_watts`,
+il programma legge già** (`tec_voltage`, `tec_current`, `tec_power_watts`
 `tec_power_level`, `tec_temperature`, `pcb_temperature`), e proporre regolazioni che
 migliorino il raffreddamento e riducano il calore dissipato.
 
@@ -16,7 +16,7 @@ migliorino il raffreddamento e riducano il calore dissipato.
 Una cella Peltier traspira calore dal lato freddo a quello caldo, ma **pompa anche calore
 dal lato caldo a quello freddo**, e consuma potenza elettrica per farlo.
 
-Il punto centrale, spesso ignorato:
+Il punto centrale, spesso ignorato
 
 > Il COP di una cella Peltier non è massimo alla massima potenza. Anzi, in genere
 > **il COP crolla** quando si alza la corrente, e il prodotto "potenza elettrica" cresce
@@ -25,7 +25,7 @@ Il punto centrale, spesso ignorato:
 Conseguenza pratica: **a parità di temperatura sul lato freddo, un punto di funzionamento
 più basso consuma meno e scalda meno.** L'errore tipico è inseguire la potenza massima.
 
-Il COP di Carnot dà il limite teorico:
+Il COP di Carnot dà il limite teorico
 
 ```
 COP_max = T_freddo / (T_caldo - T_freddo)        (temperature in Kelvin)
@@ -37,7 +37,7 @@ rendimento di circa un quarto** senza cambiare nulla sulla piastra.
 
 ## 2. Cosa misura oggi il programma, e cosa manca
 
-Già disponibile a ogni campione (2 Hz):
+Già disponibile a ogni campione (2 Hz)
 
 | Grandezza | Uso nella regolazione attuale |
 |---|---|
@@ -61,17 +61,17 @@ La guardia (`update_ctrl_guard`) regola sul `pcb_temperature` con soglie fisse a
 e gradini di ±1/±2%. Funziona per la **protezione**, ed è giusto così: la priorità è non
 bruciare il modulo.
 
-Ma non è un regolatore di **rendimento**. Conseguenze:
+Ma non è un regolatore di **rendimento**. Conseguenze
 
 - quando il lato caldo è già caldo e il freddo non scende, la guardia continua a salire di
-  1% per tick fino al cap, consumando watt per un guadagno nullo;
+ 1% per tick fino al cap, consumando watt per un guadagno nullo;
 - il punto di funzionamento non tiene conto di quanto calore sta effettivamente
-  pompando nel lato caldo.
+ pompando nel lato caldo.
 
 ### 3.2 Il pavimento a 50% è pensato per non spegnere, ma costa
 
 `CTRL_MIN_POWER = 50` serve a evitare che il controller smetta di lavorare. È una scelta
-conservativa corretta. Però: **a 50% di potenza il lato caldo del modulo si scalda comunque**,
+conservativa corretta. Però: **a 50% di potenza il lato caldo del modulo si scalda comunque**
 e il modulo non ha un modo di raffreddarsi da solo. Il pavimento andrebbe abbassato quando
 il lato freddo è già stabilizzato, non mantenuto costante.
 
@@ -84,41 +84,41 @@ errato di quasi il doppio, e la percentuale rispetto a Carnot pure.
 
 ## 4. Cosa si può fare, in ordine di rendimento per rischio
 
-### Fase 1 — Solo misura, nessun cambio di comportamento (rischio zero)
+### Fase 1: Solo misura, nessun cambio di comportamento (rischio zero)
 
-Due strumenti che non toccano la potenza e valgono più di ogni altro intervento:
+Due strumenti che non toccano la potenza e valgono più di ogni altro intervento
 
-1. **Registrare la curva di funzionamento reale**: per ogni `tec_power_level` in 0..100,
-   annotare `V`, `A`, `W`, `T_freddo`, `T_caldo` in regime stabile. Da questa tabella si
-   vede il punto di massimo rendimento, e non lo si deve dedurre dalla teoria.
+1. **Registrare la curva di funzionamento reale**: per ogni `tec_power_level` in 0..100
+ annotare `V`, `A`, `W`, `T_freddo`, `T_caldo` in regime stabile. Da questa tabella si
+ vede il punto di massimo rendimento, e non lo si deve dedurre dalla teoria.
 
 2. **Mostrare il rapporto V/A** nella schermata diagnostica: un calo netto del rapporto
-   segnala saturazione o surriscaldamento, che è la causa tipica del "il TEC non raffredda
-   più".
+ segnala saturazione o surriscaldamento, che è la causa tipica del "il TEC non raffredda
+ più".
 
-### Fase 2 — Regolazione sul rendimento (rischio basso, guadagno reale)
+### Fase 2: Regolazione sul rendimento (rischio basso, guadagno reale)
 
-Sostituire la salita "a gradini ciechi" con una scelta del punto di funzionamento:
+Sostituire la salita "a gradini ciechi" con una scelta del punto di funzionamento
 
 - **se il lato freddo non migliora da 2-3 tick e il lato caldo è salito**, la potenza
-  attuale sta pompando calore senza raffreddare: **scendere**, non salire;
+ attuale sta pompando calore senza raffreddare: **scendere**, non salire;
 - **se il lato freddo migliora e il lato caldo è stabile**, si può salire;
 - **a parità di ΔT sul freddo, preferire sempre il punto di potenza più basso** che
-  mantiene quel ΔT.
+ mantiene quel ΔT.
 
 Questo è il cuore del guadagno: stessa temperatura, meno watt, meno calore.
 
-### Fase 3 — Lato caldo (il guadagno più grande, e non è software)
+### Fase 3: Lato caldo (il guadagno più grande, e non è software)
 
-Il limite del COP lo fissa il lato caldo, e lì c'è da guadagnare:
+Il limite del COP lo fissa il lato caldo, e lì c'è da guadagnare
 
 - **flusso d'aria sul dissipatore**: è il parametro che più influenza il COP, più della
-  potenza scelta. Una ventola più efficace o un radiatore più grande riducono il lato caldo
-  di parecchi gradi;
+ potenza scelta. Una ventola più efficace o un radiatore più grande riducono il lato caldo
+ di parecchi gradi;
 - **pulizia del dissipatore e del flusso**: il caso più comune di "il TEC non raffredda
-  come prima" è il radiatore impolverato o l'aria che non circola;
+ come prima" è il radiatore impolverato o l'aria che non circola;
 - **isolamento dal lato freddo**: perdite parassite dal lato freddo verso l'ambiente
-  annullano parte del lavoro della cella, e sono interventi meccanici.
+ annullano parte del lavoro della cella, e sono interventi meccanici.
 
 Per dare un ordine: con lato caldo a 40 °C il COP massimo è ~0,79; portandolo a 33 °C
 (~306 K) sale a ~1,04, cioè **+32% di prestazione utile a parità di watt**. Nessun
@@ -135,21 +135,21 @@ toccate**: sono ciò che tiene vivo l'hardware, e sono state verificate su quest
 
 ## 6. Ordine di lavoro consigliato
 
-1. Registrare la curva reale (Fase 1) — si fa girando il TEC su più potenze e annotando
-   V/A/T con la diagnostica. Nessun rischio.
+1. Registrare la curva reale (Fase 1), si fa girando il TEC su più potenze e annotando
+ V/A/T con la diagnostica. Nessun rischio.
 2. Da quella tabella, scegliere il punto di massimo rendimento e impostarlo come cap
-   consigliato, invece del 100%.
+ consigliato, invece del 100%.
 3. Solo dopo, la regolazione "scendi se non migliora" (Fase 2).
 4. Il lato caldo (Fase 3) è lavoro meccanico, non software.
 
 ## 7. Cosa non va fatto
 
 - **Non alzare le soglie di protezione** per "raffreddare di più": il firmware taglia a
-  80 °C e 90 °C per proteggere il modulo, e la guardia software sta volutamente sotto.
+ 80 °C e 90 °C per proteggere il modulo, e la guardia software sta volutamente sotto.
 - **Non toccare il piano anticondensa**: con margine di ~1-2 °C è l'unica cosa che
-  impedisce la condensa sulla piastra, e la condensa è il danno che uccide per primo.
+ impedisce la condensa sulla piastra, e la condensa è il danno che uccide per primo.
 - **Non inseguire la potenza massima**: oltre il punto di rendimento si spendono watt e si
-  scalda il lato caldo per guadagno nullo o negativo.
+ scalda il lato caldo per guadagno nullo o negativo.
 
 ## 8. Codici errore e comportamenti del controller (manuale EK, sezioni 5.1 e 5.2)
 
@@ -159,13 +159,13 @@ prima si risolve, la seconda no.
 
 ### Modalita': quando l'Unregulated torna da solo a Cryo
 
-- **CB2** — *"Unregulated mode suspended after an extended period of inactivity
-  due to risk of condensation damage. The transition from Unregulated to Cryo
-  mode."* Causa: **CPU idle (potenza < 25 W) per piu' di 10 minuti**.
-  **Comportamento atteso**, non un errore.
-- **CB2** (seconda variante) — *"The unregulated mode continues functioning
-  after an extended period. Board remains in Unregulated mode."* Causa: **CPU non
-  idle (potenza > 25 W) per piu' di 10 minuti**. Anche questo **e' atteso**.
+- **CB2**, *"Unregulated mode suspended after an extended period of inactivity
+ due to risk of condensation damage. The transition from Unregulated to Cryo
+ mode."* Causa: **CPU idle (potenza < 25 W) per piu' di 10 minuti**.
+ **Comportamento atteso**, non un errore.
+- **CB2** (seconda variante), *"The unregulated mode continues functioning
+ after an extended period. Board remains in Unregulated mode."* Causa: **CPU non
+ idle (potenza > 25 W) per piu' di 10 minuti**. Anche questo **e' atteso**.
 
 Quindi la sospensione automatica dell'Unregulated dipende dal **carico della
 CPU**, non da un timer fisso: con la CPU sotto 25 W il controller riporta a
@@ -186,7 +186,7 @@ perche' il pulsante di uscita verso Cryo e' sempre disponibile.
 | **TD1** | termistore non funzionante | termistore guasto |
 | **DT1 / DT2** | sanita' dei sensori fuori specifica | installazione errata della cella |
 | **CB1** | guasto dell'alimentazione del controller | reboot, staccare l'alimentazione |
-| — | "Your sub-ambient is malfunctioning" | **resistenza della TEC troppo alta** |
+|, | "Your sub-ambient is malfunctioning" | **resistenza della TEC troppo alta** |
 
 **Punto importante:** su CF1/CF2/CF4, CF6 e CF7 il controller entra in
 **Standby da solo**. E' per questo che in questo progetto non si puo' usare un
@@ -227,7 +227,7 @@ sono dentro `Intel(R) Cryo Cooling Technology1.cab`.
 
 ### 9.1 La modalità NON è un comando seriale
 
-`IntelCryoCooling.Controller.dll` (82 KB) espone due scritture sulla modalità:
+`IntelCryoCooling.Controller.dll` (82 KB) espone due scritture sulla modalità
 
 - `SetLowPowerMode`
 - `SetTemperatureSensorMode`
@@ -241,23 +241,23 @@ sono dentro `Intel(R) Cryo Cooling Technology1.cab`.
 
 Conseguenza per questo progetto: **non esiste un opcode da aggiungere al
 protocollo.** Non è un comando che non siamo riusciti a trovare: non esiste
-su quel canale. Le tre modalità sono la stessa operazione di bassa potenza,
+su quel canale. Le tre modalità sono la stessa operazione di bassa potenza
 interpretata dal controller in base al cablaggio del dissipatore.
 
 Ecco perché il software Intel *legge* la modalità invece di impostarla: la
 riga `Cooler is in standby mode` è un messaggio di stato, non un'azione.
 
-**Chi sceglie la modalità, quindi, è l'hardware.** In base al carico della CPU:
+**Chi sceglie la modalità, quindi, è l'hardware.** In base al carico della CPU
 
 - **CPU sotto 25 W** per più di 10 minuti → l'Unregulated viene sospeso e si
-  torna a Cryo
+ torna a Cryo
 - **CPU sopra 25 W** per più di 10 minuti → l'Unregulated continua
 
 La protezione è dentro il controller e non dipende da nessun programma.
 
 ### 9.2 Perché il software non parte sul 14900KS
 
-Lo script VBScript di controllo del pacchetto Gen 1 contiene:
+Lo script VBScript di controllo del pacchetto Gen 1 contiene
 
 ```vb
 CPUList = Array("10900K", "10850K", "10700K", "10600K", "10900KF",
@@ -266,14 +266,14 @@ CPUList = Array("10900K", "10850K", "10700K", "10600K", "10900KF",
                 "9600K", "9900K", "9700K", "9900KS", "9900KF", "9700KF")
 ```
 
-23 modelli, **tutti di 10ª generazione**. Lo script elimina `@`, `GHz`, `MHz`,
+23 modelli, **tutti di 10ª generazione**. Lo script elimina `@`, `GHz`, `MHz`
 `CPU`, `Core(TM)`, `Edition`, `Extreme`, `Quad`, e confronta **per testo
 esatto**: `Intel(R) Core(TM) i9-14900KS` diventa `i914900KS`, che non è nella
 lista.
 
 Non è un blocco aggirabile aggirando l'installazione. Il messaggio
 `This processor is not supported.` sta nel pacchetto di setup e non nel
-programma, e le proprietà che lo governano sono `FOUND_CPU` e `VALID_CPU` —
+programma, e le proprietà che lo governano sono `FOUND_CPU` e `VALID_CPU`,
 ma ricevono il risultato della lettura del processore, che per un 14900KS
 dà "non è nella lista". Per farlo passare servirebbe cambiare come
 `SoftwareDetector.dll` legge il processore, e non serve a nulla: per il
@@ -283,7 +283,7 @@ punto 9.1 quel software non imposta comunque la modalità.
 
 Il connettore a **5 pin** della board EK va alla scheda madre e trasporta PWM
 e tach: la scheda madre pilota le ventole, la board le fa passare. Confermato
-anche dal menu del software ufficiale, che espone solo `Mode`, `Help`,
+anche dal menu del software ufficiale, che espone solo `Mode`, `Help`
 `About` ed `Exit`: se le ventole fossero comandabili via software ci sarebbe
 un `Fans` o `Pump` accanto a `Mode`.
 
@@ -304,13 +304,13 @@ CP210x, che è quello che già facciamo.
 
 ### 9.5 Cosa è stato escluso, e come
 
-Per non ripetere la ricerca, con i metodi che **non** hanno funzionato:
+Per non ripetere la ricerca, con i metodi che **non** hanno funzionato
 
 - `py7zr` non gestisce il filtro **BCJ2**: non può aprire gli archivi 7z di
-  questi pacchetti. Le librerie Python disponibili non lo coprono.
+ questi pacchetti. Le librerie Python disponibili non lo coprono.
 - I due installer non sono archivi apribili con `7zr`: sono pacchetti
-  bootstrapper. `7za` li rifiuta con "Cannot open the file as archive".
+ bootstrapper. `7za` li rifiuta con "Cannot open the file as archive".
 - I tre cab interni si aprono **solo** tagliandoli a byte precisi e passando
-  l'offset giusto a `7za`: con `cabarchive` falliscono per checksum.
+ l'offset giusto a `7za`: con `cabarchive` falliscono per checksum.
 - L'estrazione l'ha fatta l'installer stesso con `/extract <cartella>`, che
-  non installa niente. È l'unica strada trovata per arrivare ai file.
+ non installa niente. È l'unica strada trovata per arrivare ai file.
