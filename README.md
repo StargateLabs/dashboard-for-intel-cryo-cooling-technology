@@ -7,7 +7,7 @@
 [![Language: Rust](https://img.shields.io/badge/Rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
 [![GUI: iced](https://img.shields.io/badge/GUI-iced%200.13-5c8dff.svg)](https://iced.rs)
 [![Reverse Engineering](https://img.shields.io/badge/reverse%20engineering-documented-ff00a0.svg)](docs/reverse-engineering/cryo-gen1.md)
-[![Test: 314](https://img.shields.io/badge/tests-314%20passing-00FF41.svg)](#compilazione)
+[![Test: 320](https://img.shields.io/badge/tests-320%20passing-00FF41.svg)](#compilazione)
 [![Binari Intel](https://img.shields.io/badge/binari%20Intel-non%20ridistribuiti-00d26a.svg)](SECURITY.md)
 
 ![Dashboard CryoCooling, layout per monitor verticali](docs/images/dashboard-verticale.jpg)
@@ -220,7 +220,7 @@ Dettaglio completo dell'analisi: [`docs/reverse-engineering/cryo-gen1.md`](docs/
 | **Sensori** | HWiNFO64 shared memory **e** AIDA64, entrambi selezionabili a runtime; priorità ai sensori die/core |
 | **Grafici** | 8 grafici su asse temporale condiviso, interpolazione 1 s, cache geometria, ~30 fps, stop automatico in Home e nel tray |
 | **Profili** | 3 preset (Silenzioso 60 W / Gaming 120 W / AI 160 W) + profili personali, isteresi ±0,75 °C |
-| **Test** | **314 test passanti** (294 applicazione + 20 libreria), verificati con `cargo test --workspace`; 5 test di integrazione intenzionalmente ignorati perché richiedono hardware collegato o scrivono sul database reale |
+| **Test** | **320 test passanti** (297 applicazione + 23 libreria), verificati con `cargo test --workspace`; 5 test di integrazione intenzionalmente ignorati perché richiedono hardware collegato o scrivono sul database reale |
 | **Diagnostica** | 2 problemi reali, storico min/avg/max di sessione, COP **etichettato come stima**, log `tec-controller.log` |
 | **Dati** | export CSV su Desktop, auto-save CSV ogni 5 min, report PDF, storico sessioni SQLite |
 | **Continuità** | supervisore che riavvia dopo crash, riattiva **solo** Cryo se era stato richiesto, backoff fino a 30 s, `recovery.log` |
@@ -412,7 +412,7 @@ o un PID. L'unica sorgente di comandi è il regime selezionato, e ogni sequenza 
 `GetBoardStatus()` di conferma: se il controller non conferma, l'interfaccia dice **"non commutato"**,
 non "fatto".
 
-Ogni modulo è un file Focused: 38 file `.rs`, **24.536 righe**, 23 dipendenze dirette (20 runtime, 1 in build, 2 solo Windows).
+Ogni modulo è un file Focused: 38 file `.rs`, **24.398 righe**, 23 dipendenze dirette (20 runtime, 1 in build, 2 solo Windows).
 
 ---
 

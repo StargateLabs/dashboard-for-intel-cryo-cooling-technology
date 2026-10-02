@@ -9,6 +9,74 @@ La serie `rNN` più bassa corrisponde alle build di sviluppo giornaliere.
 
 ---
 
+## v2.6: Soglie termiche del controller e accensione validata
+
+Sostituisce la serie R13 come versione corrente. **320 test passati** (297 applicazione,
+23 libreria), 0 falliti, 5 ignorati. Build release completata senza errori.
+
+### Soglie sul controller
+
+Due soglie esplicite nella libreria, al posto dei valori sparsi nel codice applicativo:
+
+| Costante | Valore | Significato |
+|---|---|---|
+| `BOARD_REENABLE_TEMP` | 37,0 °C | sopra questa temperatura il TEC **non può essere acceso** |
+| `CRITICAL_BOARD_TEMP` | 38,0 °C | a questa temperatura il TEC viene **spento** |
+
+Entrambe accettano il sensore come unico criterio, ma il codice distingue due casi diversi:
+
+- `board_allows_enable(board)` blocca l'accensione se la temperatura è sopra soglia **oppure**
+  se il sensore non dà un numero finito. Una lettura `NaN`, infinita o fuori scala impedisce
+  l'avvio, perché non è distinguibile da una temperatura pericolosa.
+- `critical_board_shutdown(board)` spegne il modulo a 38 °C. È l'unico caso in cui il programma
+  **spegge da solo** senza aspettare una conferma dell'operatore.
+
+Il commento nel codice ricorda che 38 °C è un **limite di installazione configurato**, non una
+classificazione del produttore valida per altri controller.
+
+### Salute della telemetria
+
+`telemetry_healthy()` richiede due condizioni insieme: nessun fallimento di monitoraggio
+accumulato **e** un campione valido ricevuto meno di 3 secondi fa. È il segnale che il watchdog
+usa per capire se i dati che sta proteggendo sono ancora freschi.
+
+### Connessione non piu` parallela
+
+Le richieste di rilevamento della porta non avviano piu' scansioni in contemporanea:
+`AUTO_CONNECT_MAX_TRIES` limita i tentativi a 20, le richieste entrano in una coda e il
+lavoro ha un timeout di 300 ms. Il test `repeated_detection_requests_do_not_start_parallel_scans`
+copre il caso.
+
+### Validazione degli ingressi
+
+`validate_finite` e `validate_offset` rifiutano `NaN` e infinito prima che raggiungano il
+controller. Un offset non finito arriverebbe al protocollo come un `float32` senza significato.
+
+### Stato della richiesta esplicito
+
+`cooling_requested()` e `matches_mode()` espongono come **intenzione registrata** ciò che
+l'operatore ha chiesto, separato dallo stato che il controller ha confermato. La dashboard
+continua a non mostrare un regime dedotto come se fosse un fatto.
+
+### Riduzione di codice
+
+Cinque file toccati, **275 righe aggiunte e 413 rimosse**: 138 righe in meno di netto. La riduzione
+concentrata in `running.rs`, dove le soglie termiche passano da logica sparsa a chiamate a
+funzioni testabili. Le nuove funzioni hanno test dedicati, quindi la logica che prima era
+verificata solo a mano è ora coperta dalla suite.
+
+### Non dimostrato
+
+- Le soglie 37 °C e 38 °C sono **scelte per questa installazione**, non valori del produttore.
+  Non sono confrontate con un riferimento termico esterno.
+- `telemetry_healthy()` non è stata verificata con il controller realmente scollegato: il
+  comportamento è provato da test che simulano l'assenza di campioni, non da un'interruzione
+  fisica del collegamento.
+- La coda di connessione non è stata provata sotto carico con porte che spariscono e
+  ricompaiono.
+
+---
+
 ## R13: Continuità del controllo TEC
 
 - La `X` nasconde la dashboard nel tray: **non termina** il controllo.

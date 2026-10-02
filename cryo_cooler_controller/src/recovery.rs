@@ -18,8 +18,11 @@ pub fn intentional_quit() {
 pub fn resume_once() -> bool {
     static CONSUMED:AtomicBool=AtomicBool::new(false);
     std::env::var_os("CRYO_RECOVER").is_some()
-        && state_path().is_some_and(|p|p.exists())
+        && cooling_requested()
         && !CONSUMED.swap(true,Ordering::SeqCst)
+}
+pub fn cooling_requested()->bool {
+    state_path().and_then(|p|std::fs::read(p).ok()).is_some_and(|bytes|bytes==b"enabled")
 }
 pub fn log(message:&str) {
     let base=std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_else(std::env::temp_dir).join("stargate-cryo");

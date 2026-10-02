@@ -66,7 +66,14 @@ pub struct Tec {
 /// 150 ms e' ampio per un riscontro a 115200 baud, ma non tanto da
 /// congelare la UI: `monitor()` esegue 8 round-trip consecutivi sul thread
 /// UI, quindi 150 ms x 8 = 1,2 s al massimo per tick.
-const WORK_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(150);
+const WORK_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(300);
+// User's modified Gen 1 controller: this is a configured installation limit,
+// not a manufacturer temperature rating for other controllers.
+pub const CRITICAL_BOARD_TEMP:f32=38.0;
+pub const BOARD_REENABLE_TEMP:f32=37.0;
+pub fn board_allows_enable(board:f32)->bool {
+    board.is_finite() && (-40.0..BOARD_REENABLE_TEMP).contains(&board)
+}
 
 fn validate_finite(value: f32, name: &str) -> Result<(), std::io::Error> {
     if value.is_finite() { Ok(()) } else {
@@ -77,11 +84,18 @@ fn validate_finite(value: f32, name: &str) -> Result<(), std::io::Error> {
 fn validate_pid(p: f32, i: f32, d: f32) -> Result<(), std::io::Error> {
     for value in [p, i, d] {
         validate_finite(value, "PID")?;
-        if value < 0.0 {
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "PID must be non-negative"));
+        if !(0.0..=1000.0).contains(&value) {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "PID outside dashboard range 0..1000"));
         }
     }
     Ok(())
+}
+
+fn validate_offset(offset:f32)->Result<(),std::io::Error> {
+    validate_finite(offset,"setpoint")?;
+    if (-30.0..=50.0).contains(&offset) {Ok(())} else {
+        Err(std::io::Error::new(std::io::ErrorKind::InvalidInput,"Setpoint outside dashboard range -30..50 C"))
+    }
 }
 
 fn validate_power(power: u8) -> Result<(), std::io::Error> {
@@ -94,7 +108,7 @@ fn validate_power(power: u8) -> Result<(), std::io::Error> {
 fn enable_plan(p: f32, i: f32, d: f32, power: u8, offset: f32) -> Result<Vec<Request>, std::io::Error> {
     validate_pid(p, i, d)?;
     validate_power(power)?;
-    validate_finite(offset, "setpoint")?;
+    validate_offset(offset)?;
     Ok(vec![
         Request::new(commands::set::POINT_OFFSET, offset.to_le_bytes()),
         Request::new(commands::set::P_COEFFICIENT, p.to_le_bytes()),
@@ -131,6 +145,8 @@ mod transaction_tests {
         assert!(enable_plan(100.0, -1.0, 0.0, 30, 0.0).is_err());
         assert!(enable_plan(100.0, 1.0, 0.0, 101, 0.0).is_err());
         assert!(enable_plan(100.0, 1.0, 0.0, 30, f32::INFINITY).is_err());
+        assert!(enable_plan(1001.0, 1.0, 0.0, 30, 0.0).is_err());
+        assert!(enable_plan(100.0, 1.0, 0.0, 30, -1000.0).is_err());
     }
 
     #[test]
@@ -189,7 +205,8 @@ impl Tec {
             // si riprova una volta. Senza questo, un singolo timeout rendeva
             // il controller irraggiungibile per il resto della sessione.
             self.drain_input();
-            self.send_cmd_once(request).map_err(|_| first)
+            self.send_cmd_once(request).map_err(|second| std::io::Error::new(
+                first.kind(), format!("Serial opcode 0x{:02X}: {first}; retry: {second}", request.op_code)))
         })
     }
 
@@ -462,6 +479,7 @@ impl Tec {
         // far congelare la UI quando il device non c'è.
         port.set_timeout(WORK_TIMEOUT)?;
         let mut tec = Tec { port, work_timeout: WORK_TIMEOUT };
+        tec.drain_input();
         // Se non e' un TEC, fallisce qui: nessuna scrittura di stato.
         //
         // **Nota: qui non c'e' piu' nessun reset.** La versione precedente
@@ -497,7 +515,7 @@ impl Tec {
         let tec_power_watts = tec_voltage * tec_current;
         let condensation_margin = tec_temperature - dew_point_temperature;
 
-        Ok(MonitoringData {
+        let data = MonitoringData {
             timestamp: Utc::now(),
             tec_temperature,
             pcb_temperature: self.board_temperature()?,
@@ -508,7 +526,9 @@ impl Tec {
             tec_power_level: self.tec_power_level()?,
             tec_power_watts,
             condensation_margin,
-        })
+        };
+        data.validate()?;
+        Ok(data)
     }
 
     pub fn humidity(&mut self) -> Result<f32, std::io::Error> {
@@ -568,7 +588,7 @@ impl Tec {
     }
 
     pub fn set_setpoint_offset(&mut self, setpoint: f32) -> Result<(), std::io::Error> {
-        validate_finite(setpoint, "setpoint")?;
+        validate_offset(setpoint)?;
         self.send_cmd(&Request::new(
             commands::set::POINT_OFFSET,
             setpoint.to_le_bytes(),
@@ -924,6 +944,47 @@ pub struct MonitoringData {
     pub tec_power_watts:       f32,
     /// Safety margin above dew point in °C. Positive = safe, negative = CONDENSATION RISK
     pub condensation_margin:   f32,
+}
+
+impl MonitoringData {
+    fn validate(&self) -> Result<(),std::io::Error> {
+        for (name,value,min,max) in [
+            ("TEC temperature",self.tec_temperature,-40.0,100.0),
+            ("board temperature",self.pcb_temperature,-40.0,150.0),
+            ("dew point",self.dew_point_temperature,-40.0,60.0),
+            ("humidity",self.humidity,0.0,100.0),
+            ("voltage",self.tec_voltage,0.0,60.0),
+            ("current",self.tec_current,0.0,100.0),
+            ("power",self.tec_power_watts,0.0,1000.0),
+            ("condensation margin",self.condensation_margin,-100.0,140.0),
+        ] {
+            if !value.is_finite() || !(min..=max).contains(&value) {
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,format!("Invalid {name}: {value}")));
+            }
+        }
+        if self.tec_power_level>100 {return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"Invalid duty >100%"));}
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod measurement_tests {
+    use super::*;
+    fn sample()->MonitoringData {MonitoringData {timestamp:Utc::now(),tec_temperature:20.0,pcb_temperature:30.0,humidity:50.0,dew_point_temperature:15.0,tec_voltage:7.0,tec_current:15.0,tec_power_level:50,tec_power_watts:105.0,condensation_margin:5.0}}
+    #[test] fn corrupt_sensor_values_are_not_accepted_as_successful_samples() {
+        for bad in [f32::NAN,f32::INFINITY,200.0] {let mut s=sample();s.pcb_temperature=bad;assert!(s.validate().is_err());}
+        let mut s=sample();s.dew_point_temperature=f32::NAN;assert!(s.validate().is_err());
+        let mut s=sample();s.humidity=101.0;assert!(s.validate().is_err());
+        let mut s=sample();s.tec_voltage=-1.0;assert!(s.validate().is_err());
+    }
+    #[test] fn condensation_and_real_high_temperature_still_reach_the_guards() {
+        let mut s=sample();s.pcb_temperature=90.0;s.condensation_margin=-3.0;s.tec_temperature=12.0;
+        assert!(s.validate().is_ok());
+    }
+    #[test] fn enable_is_blocked_for_hot_or_invalid_board_sensor() {
+        for t in [f32::NAN,f32::INFINITY,-100.0,37.0,38.0,40.0,76.0] {assert!(!board_allows_enable(t));}
+        for t in [0.0,30.0,34.0,36.9] {assert!(board_allows_enable(t));}
+    }
 }
 
 #[cfg(test)]
