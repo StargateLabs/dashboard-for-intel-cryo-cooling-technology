@@ -1,0 +1,43 @@
+# Aggiornamento automatico delle dipendenze.
+#
+# Il toggle "Dependabot security updates" della API risponde 422 su questo
+# account, quindi le PR arrivano da questo file invece che da quello.
+#
+# Il workspace ha 20 dipendenze dirette bloccate in Cargo.lock, con
+# transitive che arrivano a oltre 300 pacchetti. Senza questo file nulla
+# segnala quando una di esse riceve una correzione di sicurezza.
+version: 2
+
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    labels:
+      - dependencies
+      - rust
+    groups:
+      # Le patch e gli aggiornamenti minori sono rumore: vanno in una PR unica.
+      patch-and-minor:
+        applies-to: version-updates
+        update-types:
+          - patch
+          - minor
+    ignore:
+      # time e bloccato almeno a 0.3.36 per il bug E0282 del compilatore:
+      # non si alza oltre senza rieseguire la suite.
+      - dependency-name: time
+        update-types:
+          - version-update:semver-minor
+
+  # Le azioni GitHub nel workflow hanno ciclo di vita breve.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
