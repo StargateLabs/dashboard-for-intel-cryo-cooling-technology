@@ -67,6 +67,15 @@ jobs:
           key: linux-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: linux-
 
+      # serialport e serial (crate della libreria protocollo) linkano contro
+      # librerie di sistema: libudev per l'accesso alle porte, parport per l'idle.
+      # Senza questo passo il clippy Linux fallisce in fase di compilazione, non
+      # per colpa del codice.
+      - name: Librerie di sistema per il collegamento seriale
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y pkg-config libudev-dev
+
       - name: Formattazione (non bloccante)
         run: cargo fmt --all -- --check
         continue-on-error: true
