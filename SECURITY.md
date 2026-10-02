@@ -89,32 +89,37 @@ Il client non viene mai eseguito senza la variabile presente.
 
 ## Avvisi di sicurezza delle dipendenze
 
-GitHub segnala sei avvisi su `Cargo.lock`. Uno è stato corretto, cinque non hanno una correzione
-compatibile con le versioni attuali delle dipendenze.
+GitHub aveva segnalato sei avvisi su `Cargo.lock`. Quattro sono stati corretti, due restano
+aperti e sono accettati per iscritto.
 
 | Gravità | Pacchetto | Nel lock | Corretta in | Stato |
 |---|---|---|---|---|
-| alta | `rustls-webpki` | 0.101.7 | 0.103.13 | accettato |
+| alta | `rustls-webpki` | 0.103.15 | 0.103.13 | **corretto** |
+| bassa | `rustls-webpki` ×2 | 0.103.15 | 0.103.12 | **corretto** |
+| bassa | `rand` | 0.8.8 | 0.8.6 | **corretto** |
 | media | `glib` | 0.16.9 | 0.20.0 | accettato, non compilato su Windows |
-| bassa | `rustls-webpki` ×2 | 0.101.7 | 0.103.12 | accettato |
 | bassa | `lru` | 0.12.5 | 0.16.3 | accettato |
-| bassa | `rand` | 0.8.5 | 0.8.6 | **corretto a 0.8.8** |
 
-### Perché i cinque rimanenti sono accettati
+### Cosa è stato fatto
 
-**`rustls-webpki`, tre avvisi.** L'unica connessione in uscita del programma è una `POST` a
-`https://api.anthropic.com/v1/messages`, in `src/ai_advisor.rs`. L'avviso alto è un denial of
-service che richiede a un server di inviare un certificato malformato: servirebbe una posizione
-man-in-the-middle con un certificato firmato da un'autorità riconosciuta. I due avvisi bassi
-riguardano i vincoli di nome dei certificati, applicabili ai certificati con autorità
-intermedia, non al foglia emesso per un dominio pubblico. La correzione richiede
-`rustls-webpki` 0.103, che `reqwest` 0.11 non ammette: servirebbe passare a `reqwest` 0.12.
+**`rustls-webpki`, tre avvisi incluso quello alto.** L'unica connessione in uscita del programma
+è una `POST` a `https://api.anthropic.com/v1/messages`, in `src/ai_advisor.rs`. La correzione
+richiedeva `rustls-webpki` 0.103, non ammessa da `reqwest` 0.11: il blocco era `reqwest`. Portato
+`reqwest` a 0.12, la risoluzione arriva a `rustls-webpki` 0.103.15. L'API usata è una singola
+`POST` con header e corpo JSON, identica fra le due major.
 
-**`glib`.** Dipendenza del backend Linux di `iced`. Non entra nel collegamento su Windows, che è
-la piattaforma di questo progetto. La correzione richiede una major (`0.16` → `0.20`).
+**`rand`.** Aggiornato alla 0.8.8, sopra la 0.8.6.
 
-**`lru`.** L'avviso riguarda `IterMut`, che questo progetto non usa. La correzione richiede una
-major (`0.12` → `0.16`).
+### Perché i due rimanenti sono accettati
+
+**`glib`, gravità media.** Arriva da `gtk 0.16.2`, che arriva da `tray-icon 0.4.4`. Serve la
+catena `gtk` 0.16 → 0.20, e `glib` non entra nel collegamento su Windows, che è la piattaforma
+di questo progetto: l'avviso riguarda il backend Linux e qui non viene compilato.
+
+**`lru`, gravità bassa.** Arriva da `iced_glyphon 0.6.0`, dentro la catena
+`iced 0.13 → iced_renderer → iced_wgpu → iced_glyphon`. Servirebbe una major di `iced`, e
+aggiornare `iced_core` senza `iced` romperebbe le firme come già visto nella PR #3. L'avviso
+riguarda `IterMut`, che questo progetto non usa.
 
 ### Non è una scusa per non aggiornare
 
