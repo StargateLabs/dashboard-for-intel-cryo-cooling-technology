@@ -87,6 +87,42 @@ Il client non viene mai eseguito senza la variabile presente.
 
 ---
 
+## Avvisi di sicurezza delle dipendenze
+
+GitHub segnala sei avvisi su `Cargo.lock`. Uno è stato corretto, cinque non hanno una correzione
+compatibile con le versioni attuali delle dipendenze.
+
+| Gravità | Pacchetto | Nel lock | Corretta in | Stato |
+|---|---|---|---|---|
+| alta | `rustls-webpki` | 0.101.7 | 0.103.13 | accettato |
+| media | `glib` | 0.16.9 | 0.20.0 | accettato, non compilato su Windows |
+| bassa | `rustls-webpki` ×2 | 0.101.7 | 0.103.12 | accettato |
+| bassa | `lru` | 0.12.5 | 0.16.3 | accettato |
+| bassa | `rand` | 0.8.5 | 0.8.6 | **corretto a 0.8.8** |
+
+### Perché i cinque rimanenti sono accettati
+
+**`rustls-webpki`, tre avvisi.** L'unica connessione in uscita del programma è una `POST` a
+`https://api.anthropic.com/v1/messages`, in `src/ai_advisor.rs`. L'avviso alto è un denial of
+service che richiede a un server di inviare un certificato malformato: servirebbe una posizione
+man-in-the-middle con un certificato firmato da un'autorità riconosciuta. I due avvisi bassi
+riguardano i vincoli di nome dei certificati, applicabili ai certificati con autorità
+intermedia, non al foglia emesso per un dominio pubblico. La correzione richiede
+`rustls-webpki` 0.103, che `reqwest` 0.11 non ammette: servirebbe passare a `reqwest` 0.12.
+
+**`glib`.** Dipendenza del backend Linux di `iced`. Non entra nel collegamento su Windows, che è
+la piattaforma di questo progetto. La correzione richiede una major (`0.16` → `0.20`).
+
+**`lru`.** L'avviso riguarda `IterMut`, che questo progetto non usa. La correzione richiede una
+major (`0.12` → `0.16`).
+
+### Non è una scusa per non aggiornare
+
+Le major vanno fatte quando si tocca quel codice. Finché il blocco non cambia, il rischio sopra
+descritto è accettato per iscritto.
+
+---
+
 ## Segnalazione
 
 Le correzioni di sicurezza si riportano come issue privata, senza allegare binari
