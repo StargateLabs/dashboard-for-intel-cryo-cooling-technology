@@ -11,17 +11,6 @@
     clippy::unwrap_used,
     clippy::use_debug
 )]
-// Vedi la nota in cryo_cooler_controller/src/main.rs: nei test `unwrap` e
-// `eprintln!` verificano un risultato, in produzione restano segnalati.
-#![cfg_attr(
-    test,
-    allow(
-        clippy::assertions_on_constants,
-        clippy::panic,
-        clippy::print_stderr,
-        clippy::unwrap_used
-    )
-)]
 
 use chrono::Utc;
 use serial::SerialPort;
