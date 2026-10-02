@@ -17,4 +17,4 @@ chrono = "0.4"
 # driver di produzione) per l'apertura e l'interrogazione.
 serialport = "*"
 rusqlite = { version = "0.31", features = ["bundled"] }
-dirs = "5"
+dirs = "7"
