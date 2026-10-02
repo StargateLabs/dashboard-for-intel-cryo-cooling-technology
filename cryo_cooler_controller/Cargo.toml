@@ -15,7 +15,7 @@ plotters-backend = "0.3"
 iced = { version = "0.13", features = ["canvas", "tokio", "image", "wgpu"] }
 # iced non riesporta `Linear` (serve per i gradienti a stop multipli):
 # usiamo iced_core direttamente, stessa versione della gerarchia iced.
-iced_core = "0.13"
+iced_core = "0.14"
 plotters-iced = "0.11"
 cryo_cooler_controller_lib = { path = "../cryo_cooler_controller_lib" }
 iced_aw = { version = "0.12", default-features = false, features = ["number_input", "badge", "card"] }
