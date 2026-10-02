@@ -13,6 +13,18 @@
     clippy::unwrap_used,
     clippy::use_debug
 )]
+// Nei test, `unwrap`, `eprintln!` e le asserzioni su costanti sono il modo
+// normale di verificare un risultato. Le stesse lint restano attive nel codice
+// di produzione: questa esenzione vale solo per la compilazione in test.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::assertions_on_constants,
+        clippy::panic,
+        clippy::print_stderr,
+        clippy::unwrap_used
+    )
+)]
 
 extern crate iced;
 extern crate plotters;
