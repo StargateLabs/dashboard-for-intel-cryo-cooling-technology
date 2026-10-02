@@ -134,6 +134,12 @@ collaudo: esistono come file e come data.
 | 3 | 06:24 | 25.335.808 | `StargateCryo-GEN1-TEC2-FINALE.exe` |
 | 4 | 06:33 | 25.334.272 | `StargateCryo-GEN1-TEC2-FINALE-R2.exe` |
 
+→ nota completa in [`docs/releases/build-prenumerazione.md`](docs/releases/build-prenumerazione.md)
+
+Il suffisso `-R2` di `FINALE-R2.exe` è un secondo tentativo della build `FINALE`, non la R2
+della serie. I nomi `FINALE` dichiarano una build data per buona senza che un collaudo lo
+confermi: non sono un traguardo.
+
 **Non dimostrato:** nessuna di queste quattro build ha una nota che descriva le modifiche o i
 test eseguiti. La numerazione parte dalla build 5, `PROFILI-R3`, che è la prima con
 documentazione.
@@ -331,8 +337,18 @@ del raffreddamento a 90 °C non è stata riprodotta.
 
 ## R9: Prima misura di sovraccarico GPU
 
-Prima misura del carico GPU dell'applicazione: **12,7–15,0 %** su cinque campioni.
+Prima misura del carico GPU dell'applicazione: **12,709–15,037 %** su cinque campioni
+ consecutivi, minimo e massimo in [`dati-gpu-r9-prima.csv`](docs/releases/dati-gpu-r9-prima.csv).
 Ha motivato R10 e R11.
+
+→ nota completa in [`docs/releases/R9-prima-misura-gpu.md`](docs/releases/R9-prima-misura-gpu.md)
+
+Limiti: la misura è taken con la dashboard in primo piano e copre cinque secondi. Non dice
+nulla del consumo a finestra nascosta o nel tray, né del comportamento su un carico lungo.
+
+La nota di R11 attribuisce a R10 un consumo fra 1,2% e 1,8%; quella di R10, scritta al momento
+della build, dice che la misura era ancora da completare. Le due affermazioni non possono
+essere entrambe vere: il punto va chiuso con una misura sulla build attiva.
 
 ---
 
