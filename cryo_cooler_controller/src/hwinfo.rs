@@ -598,7 +598,7 @@ mod platform {
                 continue
             };
 
-            if best.as_ref().map_or(true, |b| score > b.0 || (score == b.0 && s.value > b.1)) {
+            if best.as_ref().is_none_or(|b| score > b.0 || (score == b.0 && s.value > b.1)) {
                 best = Some((score, s.value));
             }
         }

@@ -828,7 +828,7 @@ fn main() {
 // `MenuItem::id()` restituisce `u32` in tray-icon 0.4 / muda 0.4.
 thread_local! {
     static TRAY_IDS: std::cell::RefCell<(u32, u32)> =
-        std::cell::RefCell::new((0, 0));
+        const { std::cell::RefCell::new((0, 0)) };
 }
 
 #[derive(Debug, Clone)]
