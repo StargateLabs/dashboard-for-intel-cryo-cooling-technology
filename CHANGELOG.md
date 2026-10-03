@@ -564,4 +564,10 @@ profili PID, integrazione HWiNFO64, tema neon green.
 - Log pre-abilitazione con BOARD_INIT, PID_RUNNING e POWER_OK.
 - Stop termico38 °C considera anche watt misurati, non soltanto intento e bitPID; riduzione37 °C invariata.
 - 325 test passati; clippy completato con avvisi da risolvere separatamente. Collaudo fisico dopo distacco dell'alimentazione ancora da confermare.
-- Log del3 ottobre documenta anche perdita deviceGPU; supervisore ha recuperato Cryo dopo2s. Questo meccanismo non rende indipendente il raffreddamento da tutti i guasti dell'interfaccia.
+- Crash `wgpu` documentato il 3 ottobre alle 02:42:28 UTC, panic in `Queue::submit`, causa
+  `Parent device is lost`, uscita con codice 101. Il supervisore ha riavviato dopo 2 s e il
+  controller è stato riconnesso con recupero del raffreddamento Cryo. Log completo in
+  [`logs/recovery-produzione.log`](docs/releases/logs/recovery-produzione.log).
+- Quel log raccoglie 14 uscite in tre giorni: 5 volontarie e 9 non volontarie, di cui un solo
+  panic. **Il meccanismo non rende il raffreddamento indipendente da tutti i guasti
+  dell'interfaccia.**
