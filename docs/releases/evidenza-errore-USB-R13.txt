@@ -1,0 +1,18 @@
+[2026-10-02 14:40:26] REGIME-ERRORE: Il dispositivo non riconosce il comando. (os error 22)
+[2026-10-02 14:40:28] CLIC-TEC: regime=Spento offset=None PID=100/1/0 cap=100%
+[2026-10-02 14:40:28] WATCHDOG: 804 errori di monitor(): richiesto DISABLE reale
+[2026-10-02 14:40:28] SERIALE-REGIME: acceso=false offset=None disable_prima=false
+[2026-10-02 14:40:28] SCRITTURA-ERRORE: Il dispositivo non riconosce il comando. (os error 22)
+[2026-10-02 14:40:28] REGIME-ERRORE: Il dispositivo non riconosce il comando. (os error 22)
+[2026-10-02 14:40:29] CLIC-TEC: regime=Spento offset=None PID=100/1/0 cap=100%
+[2026-10-02 14:40:29] WATCHDOG: 807 errori di monitor(): richiesto DISABLE reale
+[2026-10-02 14:40:29] SERIALE-REGIME: acceso=false offset=None disable_prima=false
+[2026-10-02 14:40:30] REGIME-ERRORE: Il dispositivo non riconosce il comando. (os error 22)
+[2026-10-02 14:40:30] SCRITTURA-ERRORE: Il dispositivo non riconosce il comando. (os error 22)
+[2026-10-02 14:40:32] CLIC-TEC: regime=Spento offset=None PID=100/1/0 cap=100%
+[2026-10-02 14:40:32] WATCHDOG: 810 errori di monitor(): richiesto DISABLE reale
+[2026-10-02 14:40:32] SERIALE-REGIME: acceso=false offset=None disable_prima=false
+[2026-10-02 14:40:33] REGIME-ERRORE: Il dispositivo non riconosce il comando. (os error 22)
+[2026-10-02 14:40:33] SERIALE-REGIME: acceso=false offset=None disable_prima=false
+[2026-10-02 14:40:35] SHUTDOWN: spegnimento NON confermato entro il tempo
+[2026-10-02 14:40:35] ATTORE-STOP: disable NON confermato: Il dispositivo non riconosce il comando. (os error 22)

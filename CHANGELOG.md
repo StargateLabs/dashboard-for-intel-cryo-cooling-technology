@@ -70,13 +70,13 @@ asset e il checksum nelle note.
 | [`v1.13`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.13) | R11, doppio nome | `StargateCryo-Condensa-Preview.exe` | 30/09 08:21 | 311 test |
 | [`v1.12`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.12) | R11 | `StargateCryo-GEN1-TEC2-R11.exe` | 30/09 08:21 | 311 test |
 | [`v1.11`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.11) | R10 | `StargateCryo-GEN1-TEC2-R10.exe` | 30/09 08:13 | 310 test |
-| [`v1.10`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.10) | R9 | `StargateCryo-GEN1-TEC2-R9.exe` | 30/09 08:05 | log, senza nota |
-| [`v1.9`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.9) | R8 | `StargateCryo-GEN1-TEC2-R8.exe` | 30/09 07:56 | log, senza nota |
-| [`v1.8`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.8) | R7 | `StargateCryo-GEN1-TEC2-R7-TERMICA-CANDIDATA.exe` | 30/09 07:42 | log, senza nota |
-| [`v1.7`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.7) | R6 | `StargateCryo-GEN1-TEC2-DESIGN-R6.exe` | 30/09 07:16 | log, senza nota |
-| [`v1.6`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.6) | R5 | `StargateCryo-GEN1-TEC2-GOCCE-R5.exe` | 30/09 07:09 | log, senza nota |
-| [`v1.5`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.5) | R4 | `StargateCryo-GEN1-TEC2-GRAFICA-R4.exe` | 30/09 07:01 | log, senza nota |
-| [`v1.4`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.4) | R3 | `StargateCryo-GEN1-TEC2-PROFILI-R3.exe` | 30/09 06:45 | log, senza nota |
+| [`v1.10`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.10) | R9 | `StargateCryo-GEN1-TEC2-R9.exe` | 30/09 08:05 | [`R9-prima-misura-gpu.md`](docs/releases/R9-prima-misura-gpu.md) |
+| [`v1.9`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.9) | R8 | `StargateCryo-GEN1-TEC2-R8.exe` | 30/09 07:56 | [`NOTE-R8.txt`](docs/releases/NOTE-R8.txt), 310 test |
+| [`v1.8`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.8) | R7 | `StargateCryo-GEN1-TEC2-R7-TERMICA-CANDIDATA.exe` | 30/09 07:42 | [`NOTE-R7-TERMICA.txt`](docs/releases/NOTE-R7-TERMICA.txt), 309 test |
+| [`v1.7`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.7) | R6 | `StargateCryo-GEN1-TEC2-DESIGN-R6.exe` | 30/09 07:16 | [`NOTE-DESIGN-R6.md`](docs/releases/NOTE-DESIGN-R6.md) |
+| [`v1.6`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.6) | R5 | `StargateCryo-GEN1-TEC2-GOCCE-R5.exe` | 30/09 07:09 | [`NOTE-GOCCE-R5.md`](docs/releases/NOTE-GOCCE-R5.md) |
+| [`v1.5`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.5) | R4 | `StargateCryo-GEN1-TEC2-GRAFICA-R4.exe` | 30/09 07:01 | [`NOTE-GRAFICA-R4.md`](docs/releases/NOTE-GRAFICA-R4.md) |
+| [`v1.4`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.4) | R3 | `StargateCryo-GEN1-TEC2-PROFILI-R3.exe` | 30/09 06:45 | [`NOTE-PROFILI-R3.md`](docs/releases/NOTE-PROFILI-R3.md) |
 | [`v1.3`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.3) | — | `StargateCryo-GEN1-TEC2-FINALE-R2.exe` | 30/09 06:33 | nessuna nota |
 | [`v1.2`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.2) | — | `StargateCryo-GEN1-TEC2-FINALE.exe` | 30/09 06:24 | nessuna nota |
 | [`v1.1`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v1.1) | — | `StargateCryo-GEN1-TEC2.exe` | 30/09 06:21 | nessuna nota |
@@ -86,9 +86,9 @@ asset e il checksum nelle note.
 `StargateCryo-GEN1-TEC2-R11.exe` hanno SHA256 identico: è lo stesso eseguibile con due nomi, non
 due versioni. Chi scarica l'anteprima della condensa scarica R11.
 
-**Le prime nove build non hanno una nota di collaudo.** Esistono i log di compilazione da R3 in
-poi, e le note `VERIFICA-RICHIESTE` da R10 in poi. Per le altre sette la data è l'unico dato
-disponibile e le note di rilascio lo dichiarano.
+**Le quattro build precedenti alla numerazione non hanno una nota di collaudo.** Da R3 a R8 le note
+esistono in formato txt o md, da R10 in poi come `VERIFICA-RICHIESTE`. Per le prime quattro la
+data è l'unico dato disponibile e le note di rilascio lo dichiarano.
 
 La numerazione della serie parte da `PROFILI-R3`, che è il primo eseguibile con un numero R.
 **R1 e R2 non hanno un eseguibile**: per R1 e R2 esiste solo la nota di lavoro in
