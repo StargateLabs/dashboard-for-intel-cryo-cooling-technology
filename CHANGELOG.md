@@ -7,10 +7,10 @@ Il versioning è diviso in due serie:
 | Serie | Periodo | Scopo |
 |---|---|---|
 | `r81` → `r147` | 28–30 settembre 2026 | sviluppo giornaliero sul controller Intel Cryo Gen 1, senza celle TEC |
-| `R1` → `R15` | 30 settembre – 2 ottobre 2026 | collaudo su hardware reale con cella TEC montata |
+| `R1` → `R16` | 30 settembre – 3 ottobre 2026 | collaudo su hardware reale con cella TEC montata |
 
-I numeri di versione pubblicati su GitHub (`v2.5`, `v2.6`, `v2.7`) corrispondono alle release
-R13, R14 e R15.
+I numeri di versione pubblicati su GitHub (`v2.5`, `v2.6`, `v2.7`, `v2.8`) corrispondono alle
+release R13, R14, R15 e R16.
 
 ---
 
@@ -57,6 +57,7 @@ asset e il checksum nelle note.
 
 | Tag | Build | Esiguibile | Data | SHA256 |
 |---|---|---|---|---|
+| [`v2.8`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v2.8) | R16 | `StargateCryo-GEN1-TEC2-R16.exe` | 03/10 05:35 | `909013d2…baa275` |
 | [`v2.7`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v2.7) | R15 | `StargateCryo-GEN1-TEC2-R15.exe` | 02/10 17:10 | `1d6497af…70b481` |
 | [`v2.6`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v2.6) | R14 | `StargateCryo-GEN1-TEC2-R14.exe` | 02/10 16:46 | `d3969a6d…025388` |
 | [`v2.5`](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases/tag/v2.5) | R13 | `StargateCryo-GEN1-TEC2-R13.exe` | 30/09 15:14 | `3f9460cd…fe0b84` |
@@ -556,3 +557,11 @@ profili PID, integrazione HWiNFO64, tema neon green.
 - [`docs/reverse-engineering/cryo-gen1.md`](docs/reverse-engineering/cryo-gen1.md)
 - [`docs/hardware/cella-peltier.md`](docs/hardware/cella-peltier.md)
 - [`docs/hardware/ottimizzazione-before-after.md`](docs/hardware/ottimizzazione-before-after.md)
+## R16 — 3 ottobre 2026
+
+- Ripristinata inizializzazione dopo distacco alimentazione, presente nella vecchia dashboard ma rimossa nelle build precedenti. Solo nel percorso Abilita TEC: PCB valido sotto37 °C, BOARD_INIT assente e PID fermo, DISABLE, RESET_BOARD singolo, attesa BOARD_INIT fino a8 letture, nuovo controllo PCB, riscrittura offset/PID/enable/potenza.
+- Nessun reset durante rilevamento o connessione; reset non ritentato automaticamente dopo ACK perso.
+- Log pre-abilitazione con BOARD_INIT, PID_RUNNING e POWER_OK.
+- Stop termico38 °C considera anche watt misurati, non soltanto intento e bitPID; riduzione37 °C invariata.
+- 325 test passati; clippy completato con avvisi da risolvere separatamente. Collaudo fisico dopo distacco dell'alimentazione ancora da confermare.
+- Log del3 ottobre documenta anche perdita deviceGPU; supervisore ha recuperato Cryo dopo2s. Questo meccanismo non rende indipendente il raffreddamento da tutti i guasti dell'interfaccia.

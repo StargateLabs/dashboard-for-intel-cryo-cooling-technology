@@ -40,7 +40,7 @@ danneggia per primo l'hardware.
 
 | Opcode | Effetto | Regola |
 |---|---|---|
-| **`0x1E`** | **reset di fabbrica**: perde PID, setpoint, tetto di potenza | non deve mai essere emesso, né come fallback di connessione |
+| **`0x1E`** | **reset di fabbrica**: perde PID, setpoint, tetto di potenza | solo durante Abilita TEC se BOARD_INIT manca e PID è fermo; invio singolo, attesa BOARD_INIT e riscrittura parametri; mai durante connessione/scansione |
 | `0x18` `[0,0,0,0]` | **abilita** il TEC (polarità opposta al nome del metodo) | da trattare come scrittura, mai come lettura |
 | `0x15` `0x16` `0x17` | azzerano i guadagni PID | validare prima dell'invio |
 | `0x1D` | porta il tetto di potenza a **0 %** | validare prima dell'invio |

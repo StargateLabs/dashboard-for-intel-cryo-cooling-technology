@@ -7,7 +7,7 @@
 [![Language: Rust](https://img.shields.io/badge/Rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
 [![GUI: iced](https://img.shields.io/badge/GUI-iced%200.13-5c8dff.svg)](https://iced.rs)
 [![Reverse Engineering](https://img.shields.io/badge/reverse%20engineering-documented-ff00a0.svg)](docs/reverse-engineering/cryo-gen1.md)
-[![Test: 320](https://img.shields.io/badge/tests-320%20passing-00FF41.svg)](#compilazione)
+[![Test: 325](https://img.shields.io/badge/tests-325%20passing-00FF41.svg)](#compilazione)
 [![Binari Intel](https://img.shields.io/badge/binari%20Intel-non%20ridistribuiti-00d26a.svg)](SECURITY.md)
 
 ![Dashboard CryoCooling, layout per monitor verticali](docs/images/dashboard-verticale.jpg)
@@ -220,7 +220,7 @@ Dettaglio completo dell'analisi: [`docs/reverse-engineering/cryo-gen1.md`](docs/
 | **Sensori** | HWiNFO64 shared memory e AIDA64, entrambi selezionabili a runtime; priorità ai sensori die/core |
 | **Grafici** | 8 grafici su asse temporale condiviso, interpolazione 1 s, cache geometria, ~30 fps, stop automatico in Home e nel tray |
 | **Profili** | 3 preset (Silenzioso 60 W / Gaming 120 W / AI 160 W) + profili personali, isteresi ±0,75 °C |
-| **Test** | **320 test passanti** (297 applicazione + 23 libreria), verificati con `cargo test --workspace`; 5 test di integrazione intenzionalmente ignorati perché richiedono hardware collegato o scrivono sul database reale |
+| **Test** | **325 test passanti** (297 applicazione + 28 libreria), verificati con `cargo test --workspace`; 5 test di integrazione intenzionalmente ignorati perché richiedono hardware collegato o scrivono sul database reale |
 | **Diagnostica** | 2 problemi reali, storico min/avg/max di sessione, COP **etichettato come stima**, log `tec-controller.log` |
 | **Dati** | export CSV su Desktop, auto-save CSV ogni 5 min, report PDF, storico sessioni SQLite |
 | **Continuità** | supervisore che riavvia dopo crash, riattiva **solo** Cryo se era stato richiesto, backoff fino a 30 s, `recovery.log` |
@@ -428,8 +428,7 @@ Ogni modulo è un file Focused: 38 file `.rs`, **24.398 righe**, 23 dipendenze d
 
 **Durante l'uso**
 
-- Il software **non alza mai** le soglie di protezione per "raffreddare di più". Il firmware taglia a
-  80 °C e 90 °C; la guardia software sta volutamente sotto (58/66/76 °C).
+- Su questo impianto modificato: riduzione Cryo da **37 °C PCB**, DISABLE a **38 °C**, riabilitazione sotto 37 °C. Limiti specifici dell'impianto, non certificazioni del produttore.
 - **Non toccare il piano anticondensa**: con margine di 1–2 °C è l'unica cosa che impedisce la
   condensa sulla piastra.
 - **Non inseguire la potenza massima**: oltre il punto di rendimento si spendono watt e si scalda il
@@ -440,7 +439,7 @@ Ogni modulo è un file Focused: 38 file `.rs`, **24.398 righe**, 23 dipendenze d
 
 **Regole di protocollo da non violare**
 
-- `0x1E` è il reset di fabbrica: **non deve mai essere emesso per sbaglio**, né come fallback.
+- `0x1E` viene usato solo nel percorso Abilita TEC quando BOARD_INIT manca e PID_RUNNING è falso: una sola inizializzazione, seguita dalla riscrittura dei parametri. Mai durante scansione o apertura porta.
 - Connettersi **non è un'azione di stato**: aprire la porta non modifica nulla (difetto D1).
 - `0x18` ha polarità opposta al nome: `[0,0,0,0]` accende.
 
@@ -563,3 +562,7 @@ dettagliate in [`TRADEMARKS.md`](TRADEMARKS.md).
 *Reverse engineering documentato. Misure dichiarate solo quando misurate.*
 
 </div>
+
+### R16 — avvio dopo distacco alimentazione
+
+Ripristinata inizializzazione condizionata nel percorso Abilita TEC. Vedi [audit R16](docs/releases/R16-audit-avvio-a-freddo.md) per sequenza, verifiche e limiti.

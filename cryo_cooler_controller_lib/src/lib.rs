@@ -120,6 +120,25 @@ fn enable_plan(p: f32, i: f32, d: f32, power: u8, offset: f32) -> Result<Vec<Req
     ])
 }
 
+// Cold boot recovery belongs to an explicit enable, never port detection.
+// Mirrors the legacy new(): RESET_BOARD only when BOARD_INIT is absent.
+fn initialize_board_for_enable(status:TecStatus,
+    mut exchange:impl FnMut(u8,[u8;4])->Result<u32,std::io::Error>,
+    mut pause:impl FnMut()) -> Result<bool,std::io::Error> {
+    if status.contains(TecStatus::BOARD_INIT) {return Ok(false);}
+    if status.contains(TecStatus::PID_RUNNING) {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"BOARD_INIT absent while PID_RUNNING: refusing board reset"));
+    }
+    exchange(commands::set::DISABLE_NOT_ENABLE,payload_alimentazione(false))?;
+    exchange(commands::set::RESET_BOARD,[0;4])?;
+    for _ in 0..8 {
+        pause();
+        let bits=exchange(commands::HEART_BEAT,[0;4])?;
+        if TecStatus::from_bits_truncate(bits).contains(TecStatus::BOARD_INIT) {return Ok(true);}
+    }
+    Err(std::io::Error::new(std::io::ErrorKind::TimedOut,"Cold initialization failed: BOARD_INIT absent after RESET_BOARD; TEC not enabled"))
+}
+
 fn execute_enable(plan: &[Request], mut send: impl FnMut(&Request) -> Result<(), std::io::Error>) -> Result<(), std::io::Error> {
     for request in plan {
         if let Err(error) = send(request) {
@@ -147,6 +166,54 @@ mod transaction_tests {
         assert!(enable_plan(100.0, 1.0, 0.0, 30, f32::INFINITY).is_err());
         assert!(enable_plan(1001.0, 1.0, 0.0, 30, 0.0).is_err());
         assert!(enable_plan(100.0, 1.0, 0.0, 30, -1000.0).is_err());
+    }
+
+    #[test]
+    fn cold_boot_initializes_once_then_waits_for_board_init() {
+        let mut ops=Vec::new();
+        let mut polls=0;
+        assert!(initialize_board_for_enable(TecStatus::POWER_OK,|op,data| {
+            ops.push((op,data));
+            if op==commands::HEART_BEAT {polls+=1;}
+            Ok(if polls>=2 {TecStatus::BOARD_INIT.bits()} else {0})
+        },||{}).unwrap());
+        assert_eq!(ops[0],(commands::set::DISABLE_NOT_ENABLE,payload_alimentazione(false)));
+        assert_eq!(ops[1],(commands::set::RESET_BOARD,[0;4]));
+        assert_eq!(ops.iter().filter(|(op,_)|*op==commands::set::RESET_BOARD).count(),1);
+        assert_eq!(polls,2);
+        assert!(!ops.iter().any(|(op,data)|*op==commands::set::DISABLE_NOT_ENABLE&&*data==payload_alimentazione(true)));
+    }
+
+    #[test]
+    fn warm_board_never_resets() {
+        for status in [TecStatus::BOARD_INIT,TecStatus::BOARD_INIT|TecStatus::PID_RUNNING] {
+            assert!(!initialize_board_for_enable(status,|_,_|panic!("warm board must not reset"),||{}).unwrap());
+        }
+    }
+
+    #[test]
+    fn inconsistent_running_board_is_not_reset() {
+        assert!(initialize_board_for_enable(TecStatus::PID_RUNNING,|_,_|panic!("running board must not reset"),||{}).is_err());
+    }
+
+    #[test]
+    fn initialization_timeout_is_bounded_and_never_enables() {
+        let mut ops=Vec::new();
+        assert!(initialize_board_for_enable(TecStatus::empty(),|op,_|{ops.push(op);Ok(0)},||{}).is_err());
+        assert_eq!(ops.iter().filter(|&&op|op==commands::HEART_BEAT).count(),8);
+        assert_eq!(ops.iter().filter(|&&op|op==commands::set::RESET_BOARD).count(),1);
+    }
+
+    #[test]
+    fn each_initialization_failure_stops_further_writes() {
+        for fail_at in 0..3 {
+            let mut calls=0;
+            assert!(initialize_board_for_enable(TecStatus::empty(),|_,_| {
+                let index=calls;calls+=1;
+                if index==fail_at {Err(std::io::Error::new(std::io::ErrorKind::TimedOut,"injected"))} else {Ok(0)}
+            },||{}).is_err());
+            assert_eq!(calls,fail_at+1);
+        }
     }
 
     #[test]
@@ -200,6 +267,11 @@ impl Tec {
     /// quindi ritentare non e' pericoloso: al massimo si duplica una
     /// scrittura idempotente.
     fn send_cmd(&mut self, request: &Request) -> Result<Response, std::io::Error> {
+        // Reset is not idempotent: an ACK loss must never send it twice.
+        if request.op_code==commands::set::RESET_BOARD {
+            return self.send_cmd_once(request).map_err(|e|std::io::Error::new(e.kind(),
+                format!("RESET_BOARD sent once; acknowledgement failed: {e}")));
+        }
         self.send_cmd_once(request).or_else(|first| {
             // Si scarta tutto cio' che e' rimasto nel buffer di ricezione e
             // si riprova una volta. Senza questo, un singolo timeout rendeva
@@ -394,28 +466,9 @@ pub fn payload_alimentazione(tec_acceso: bool) -> [u8; 4] {
     }
 }
 
-/// Se aprire una connessione debba emettere il reset di fabbrica (`0x1E`).
-///
-/// **La risposta e' no, e non e' una semplificazione: e' una correzione.**
-///
-/// La versione precedente rispondeva "si" ogni volta che `BOARD_INIT` non era
-/// impostato, e `Tec::new` lo usava per mandare `0x1E`. La conseguenza era che
-/// PID, setpoint e power cap sparivano al primo ricollegamento, senza che
-/// l'operatore avesse toccato niente. Il power cap in particolare e' il limite
-/// di potenza che l'operatore ha impostato per stare tranquillo: azzerarlo di
-/// nascosto all'apertura della porta non e' un dettaglio, e' togliere una
-/// protezione senza chiederlo.
-///
-/// "Non e' un TEC, fallisce qui" e' gia' garantito da `hear_beat`: non e' la
-/// condizione di `BOARD_INIT` a decidere se la scheda e' viva.
-///
-/// Se in futuro servisse una procedura di inizializzazione della board, sara' un
-/// azione esplicita di commissioning con la sua conferma — non un effetto
-/// collaterale dell'apertura della porta.
-///
-/// La funzione resta anche se non ha piu' casi veri: e' il posto dove la
-/// decisione e' dichiarata, e il test che la presidia deve trovare qualcosa su
-/// cui agire invece di non trovare niente.
+/// Detection and opening a port never reset the board.
+/// Cold initialization is performed only inside an explicit enable transaction,
+/// when BOARD_INIT is absent and PID is stopped; requested parameters are restored.
 pub fn serve_reset_alla_connessione(_status: TecStatus) -> bool {
     false
 }
@@ -430,16 +483,8 @@ impl Tec {
         Tec { port, work_timeout: WORK_TIMEOUT }
     }
 
-    /// Apre la porta e interroga il controller **senza modificarne lo stato**.
-    ///
-    /// Serve al rilevamento automatico: `new()` è pensato per la connessione
-    /// reale e, se la board non è in `BOARD_INIT`, manda un `reset`. Durante
-    /// una scansione questo sarebbe dannoso — ogni tentativo riporterebbe la
-    /// board allo stato di fabbrica, e il retry automatico (uno ogni 2s)
-    /// farebbe reset ripetuti. Qui mandiamo solo `HEART_BEAT` e, se la
-    /// risposta è un `TecStatus` valido, restituiamo l'istanza già aperta:
-    /// il chiamante non deve riaprire la porta (secondo open sullo stesso
-    /// handle USB fallirebbe).
+    /// Read-only port detection. Neither probe nor new initializes the board.
+    /// Cold initialization belongs to enable(), after parameter and PCB checks.
     pub fn probe<T: AsRef<std::ffi::OsStr>>(
         serial_port: &T,
         timeout: std::time::Duration,
@@ -678,6 +723,30 @@ impl Tec {
         // 3. Invia set_power_level DOPO l'enable — il firmware resetta il cap all'atto
         //    dell'abilitazione, quindi mandarlo prima è inutile.
         let plan = enable_plan(p, i, d, power_level, setpoint)?;
+        let board=self.board_temperature()?;
+        if !board_allows_enable(board) {
+            let off=self.disable();
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,
+                format!("Enable blocked: PCB {board} C; requires below {BOARD_REENABLE_TEMP} C; disable={off:?}")));
+        }
+        let status=self.hear_beat()?;
+        let initialized=match initialize_board_for_enable(status,
+            |op,data|self.send_cmd(&Request::new(op,data)).map(|r|u32::from_le_bytes(r.data)),
+            ||std::thread::sleep(std::time::Duration::from_millis(100))) {
+            Ok(initialized)=>initialized,
+            Err(error)=> {
+                let off=self.disable();
+                return Err(std::io::Error::new(error.kind(),format!("{error}; disable={off:?}")));
+            }
+        };
+        if initialized {
+            let board=self.board_temperature()?;
+            if !board_allows_enable(board) {
+                let off=self.disable();
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,
+                    format!("PCB invalid/hot after cold initialization: {board} C; disable={off:?}")));
+            }
+        }
         execute_enable(&plan, |request| self.send_cmd(request).map(|_| ()))
     }
 

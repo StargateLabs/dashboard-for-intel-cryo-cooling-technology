@@ -1187,8 +1187,9 @@ impl RunningState {
         // feedback handles the soft threshold; critical temperature uses
         // the acknowledged DISABLE transaction instead of a percentage.
         if Self::critical_board_shutdown(ctrl_temp) {
-            let active=self.ultimo_regime_richiesto.map(|r|r.tec_acceso())
-                .unwrap_or_else(||self.tec_status.contains(TecStatus::PID_RUNNING));
+            let active=self.ultimo_regime_richiesto.is_some_and(|r|r.tec_acceso())
+                || (!self.mode_ack_pending && (self.tec_status.contains(TecStatus::PID_RUNNING)
+                    || self.last_power_watts > 2.0));
             if active {
                 crate::commissioning::event("CTRL-CRITICO", &format!("PCB {ctrl_temp:.1} C: DISABLE reale"));
                 self.scrivi_regime(crate::commutazione::Regime::Spento);

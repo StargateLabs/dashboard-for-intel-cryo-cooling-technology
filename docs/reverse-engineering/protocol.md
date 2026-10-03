@@ -12,7 +12,7 @@ Ogni valore in questo documento è letto dal codice o dai binari del produttore,
 | Ponte USB-seriale | **Silicon Labs CP210x** | `silabser.sys` presente nel pacchetto Intel, con `CP210xVCPInstaller_x64.exe` |
 | Baud rate | **115200** | `lib.rs:432` e `lib.rs:449`, `set_baud_rate(serial::Baud115200)` |
 | Formato | 8 bit, nessuna parità, 1 bit di stop (8N1) | default `serialport` |
-| Timeout di risposta | 150 ms | `lib.rs:66`: ampio per un riscontro a 115200 baud |
+| Timeout di risposta | 300 ms | `lib.rs:66`: ampio per un riscontro a 115200 baud |
 
 La porta COM non è una UART nativa: è un ponte CP210x. Il programma parla quindi il protocollo
 CP210x, che è quello implementato.
@@ -244,3 +244,7 @@ può essere il reset di fabbrica, e un controller spento non applica comunque un
 | attore di scrittura unico | `cryo_cooler_controller/src/attore_tec.rs` |
 | origine dei dati e limiti | [`cryo-gen1.md`](cryo-gen1.md) |
 | errori e limiti dichiarati | [`../SECURITY.md`](../../SECURITY.md) |
+
+## R16: inizializzazione a freddo
+
+RESET_BOARD resta una scrittura, esclusa dalla scansione. Solo Abilita TEC può inviarlo quando BOARD_INIT manca e PID_RUNNING è falso, dopo il controllo PCB. La sequenza attende BOARD_INIT e ripristina i parametri. [Audit R16](../releases/R16-audit-avvio-a-freddo.md).

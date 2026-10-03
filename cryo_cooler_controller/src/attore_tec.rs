@@ -198,6 +198,14 @@ fn esegui(tec: &mut cryo_cooler_controller_lib::Tec, r: Richiesta) -> Risposta {
         }
         Richiesta::Regime { offset, tec_acceso, pid, prima_spegni } => {
             if tec_acceso {
+                match tec.hear_beat_completo() {
+                    Ok(st)=>crate::commissioning::event("ENABLE-PREFLIGHT",&format!(
+                        "raw=0x{:08X} BOARD_INIT={} PID_RUNNING={} POWER_OK={}",st.noti.bits() | ((st.bit_alternativi as u32)<<18),
+                        st.noti.contains(cryo_cooler_controller_lib::TecStatus::BOARD_INIT),
+                        st.noti.contains(cryo_cooler_controller_lib::TecStatus::PID_RUNNING),
+                        st.noti.contains(cryo_cooler_controller_lib::TecStatus::POWER_OK))),
+                    Err(e)=>return Risposta::ErroreRegime {offset,error:format!("Heartbeat pre-abilitazione fallito: {e}")},
+                }
                 match tec.board_temperature() {
                     Ok(board) if cryo_cooler_controller_lib::board_allows_enable(board)=>{},
                     result=> {
