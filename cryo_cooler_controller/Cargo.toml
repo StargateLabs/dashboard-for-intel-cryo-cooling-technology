@@ -12,7 +12,7 @@ plotters = { version = "0.3", default-features = false, features = [
 ] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 plotters-backend = "0.3"
-iced = { version = "0.13", features = ["canvas", "tokio", "image", "wgpu"] }
+iced = { version = "0.14", features = ["canvas", "tokio", "image", "wgpu"] }
 # iced non riesporta `Linear` (serve per i gradienti a stop multipli):
 # usiamo iced_core direttamente, stessa versione della gerarchia iced.
 iced_core = "0.13"
