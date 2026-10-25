@@ -72,7 +72,8 @@ pub fn evaluate(status: TecStatus) -> Vec<Issue> {
         out.push(Issue {
             severity: Severity::Critical,
             label: "Risposta seriale incompleta",
-            advice: "Tipicamente rumore elettrico o porta USB instabile. Ricollega il cavo.",
+            advice: "La risposta ricevuta è incompleta. Verifica il collegamento USB; \
+                     il flag non identifica da solo la causa.",
             solo_in_funzione: false,
         });
     }
@@ -92,9 +93,10 @@ pub fn evaluate(status: TecStatus) -> Vec<Issue> {
             //
             // Un consiglio che descrive un'altra macchina fa perdere tempo:
             // l'utente va a controllare collegamenti che sono già a posto.
-            advice: "Su questo impianto il bit è rumore: si accende anche a 73 W \
-                     con il raffreddamento che funziona. Nessuna azione. Se compare \
-                     l'errore CB1 a schermo, allora il guasto è reale.",
+            advice: "Il controller segnala OCP (protezione da sovracorrente). \
+                     Il solo flag non distingue un intervento reale da una segnalazione anomala. \
+                     Se persiste, verifica alimentazione, cablaggio e specifiche del controller; \
+                     arresta il TEC prima di intervenire sui collegamenti.",
             solo_in_funzione: false,
         });
     }
@@ -102,8 +104,8 @@ pub fn evaluate(status: TecStatus) -> Vec<Issue> {
         out.push(Issue {
             severity: Severity::Critical,
             label: "Fail-safe attivo",
-            advice: "Leggi il manuale: il fail-safe si attende se il circuito di raffreddamento \
-                     non e' collegato correttamente o se una temperatura e' fuori limite.",
+            advice: "Il controller segnala una condizione di protezione. Verifica temperature, \
+                     sensori e circolazione del liquido secondo il manuale del produttore.",
             solo_in_funzione: false,
         });
     }
@@ -161,8 +163,8 @@ pub fn evaluate(status: TecStatus) -> Vec<Issue> {
         out.push(Issue {
             severity: Severity::Critical,
             label: "PID non valido",
-            advice: "Reimposta i coefficienti dalla sidebar e osserva l'etichetta FW: \
-                     deve mostrare il valore che hai impostato.",
+            advice: "Il firmware segnala coefficienti PID non validi. Confronta i valori \
+                     richiesti e quelli letti dal controller nel pannello Debug.",
             solo_in_funzione: true,
         });
     }
@@ -170,7 +172,8 @@ pub fn evaluate(status: TecStatus) -> Vec<Issue> {
         out.push(Issue {
             severity: Severity::Critical,
             label: "PID fuori intervallo",
-            advice: "Nel dubbio ripristina i valori predefiniti: la TEC era tarata di fabbrica.",
+            advice: "Il firmware segnala parametri PID fuori intervallo. Verifica i valori \
+                     ammessi per questo controller prima di applicare altre modifiche.",
             solo_in_funzione: true,
         });
     }
@@ -178,7 +181,8 @@ pub fn evaluate(status: TecStatus) -> Vec<Issue> {
         out.push(Issue {
             severity: Severity::Warning,
             label: "PID di fabbrica",
-            advice: "Se hai modificato P/I/D, non sono stati applicati: ricontrolla.",
+            advice: "Il firmware segnala parametri PID predefiniti. Se attendevi valori \
+                     personalizzati, confronta le impostazioni richieste con quelle lette dal controller.",
             solo_in_funzione: false,
         });
     }

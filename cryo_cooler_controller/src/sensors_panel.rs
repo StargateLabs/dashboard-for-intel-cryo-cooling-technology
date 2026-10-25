@@ -515,6 +515,9 @@ fn fmt_value(s: &SensorReading) -> String {
 }
 
 fn sensor_card(s: &SensorReading) -> Element<'_, Message> {
+    if crate::appearance::active() {
+        return subzero_sensor_card(s);
+    }
     let color   = value_color(s);
     let min_max = if s.min == 0.0 && s.max == 0.0 {
         format!("{}", s.source)
@@ -542,18 +545,93 @@ fn sensor_card(s: &SensorReading) -> Element<'_, Message> {
             .push(
                 Text::new(min_max).size(11)
                     .color(
-                        iced::Color { r: 0.05, g: 0.28, b: 0.20, a: 1.0 }
+                        if crate::appearance::active() { iced::Color::from_rgb8(150, 175, 157) } else { iced::Color { r: 0.05, g: 0.28, b: 0.20, a: 1.0 } }
                     ),
             ),
     )
     .padding([5u16, 8u16])
     .width(Length::Fill)
-    .style(|_: &iced::Theme| iced::widget::container::Style {
+    .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
         background: Some(iced::Background::Color(iced::Color { r: 0.010, g: 0.072, b: 0.055, a: 0.88 })),
         border: iced::Border { color: iced::Color { r: 0.12, g: 0.45, b: 1.0, a: 0.22 }, width: 1.0, radius: 10.0.into() },
         text_color: None, shadow: iced::Shadow::default(),
-    })
+    }))
     .into()
+}
+
+/// Technical instrument row: the same reading and history, with a compact
+/// value well and an honest 0–100 scale only for temperature and load.
+fn subzero_sensor_card(s: &SensorReading) -> Element<'_, Message> {
+    let accent = match s.sensor_type {
+        SensorType::Temperature => {
+            if s.value.abs() > 60.0 { color_for_temp(s.value.abs()) }
+            else { iced::Color::from_rgb8(45, 224, 172) }
+        }
+        SensorType::Load => iced::Color::from_rgb8(45, 224, 172),
+        _ => value_color(s),
+    };
+    let bright = iced::Color::from_rgb8(237, 245, 253);
+    let muted = iced::Color::from_rgb8(138, 185, 159);
+    let bold = iced::Font { weight: iced::font::Weight::Bold, ..iced::Font::DEFAULT };
+    let reading = Container::new(
+        Text::new(format!("{} {}", fmt_value(s), s.unit))
+            .size(20).font(bold).color(bright)
+            .align_x(alignment::Horizontal::Right),
+    )
+    .padding([1u16, 5u16])
+    .style(|_: &iced::Theme| iced::widget::container::Style {
+        background: Some(iced::Color::from_rgb8(4, 18, 13).into()),
+        ..Default::default()
+    });
+    let main = Row::new()
+        .spacing(5).align_y(iced::Alignment::Center)
+        .push(Text::new(s.reading_name.to_uppercase()).size(11)
+            .color(bright).width(Length::Fill))
+        .push(reading);
+
+    let track_color = iced::Color::from_rgb8(23, 52, 36);
+    let bar: Element<'_, Message> = if matches!(s.sensor_type, SensorType::Temperature | SensorType::Load)
+        && s.value.is_finite()
+    {
+        iced::widget::progress_bar(0.0..=100.0, s.value.clamp(0.0, 100.0))
+            .height(3)
+            .style(move |_: &iced::Theme| iced::widget::progress_bar::Style {
+                background: track_color.into(),
+                bar: accent.into(),
+                border: iced::Border::default(),
+            }).into()
+    } else {
+        Row::new()
+            .push(Container::new(iced::widget::Space::with_height(3))
+                .width(32)
+                .style(move |_: &iced::Theme| iced::widget::container::Style {
+                    background: Some(accent.into()), ..Default::default()
+                }))
+            .push(Container::new(iced::widget::Space::with_height(3))
+                .width(Length::Fill)
+                .style(move |_: &iced::Theme| iced::widget::container::Style {
+                    background: Some(track_color.into()), ..Default::default()
+                })).into()
+    };
+    let history = if s.min == 0.0 && s.max == 0.0 {
+        format!("{}", s.source)
+    } else {
+        format!("{}  ·  MIN {:.1}  MAX {:.1}", s.source, s.min, s.max)
+    };
+    Container::new(Column::new().spacing(4)
+        .push(main)
+        .push(bar)
+        .push(Text::new(history).size(10).color(muted)))
+        .padding([7u16, 8u16])
+        .width(Length::Fill)
+        .style(|_: &iced::Theme| iced::widget::container::Style {
+            background: Some(iced::Color::from_rgba8(7, 29, 20, 0.76).into()),
+            border: iced::Border {
+                color: iced::Color::from_rgb8(40, 83, 59),
+                width: 1.0, radius: 5.0.into(),
+            },
+            ..Default::default()
+        }).into()
 }
 
 fn fan_row(s: &SensorReading) -> Element<'_, Message> {

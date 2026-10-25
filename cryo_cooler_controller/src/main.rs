@@ -33,11 +33,16 @@ mod recovery;
 #[allow(unused)]
 mod autostart;
 
+mod appearance;
+mod gauge;
 mod charts;
 mod chart_preview;
 mod condensation_badge;
 mod automanager;
 mod cpuload;
+mod cpu_clock;
+mod tf3;
+mod tf2;
 mod pumpwatch;
 mod commissioning;
 mod config;
@@ -212,6 +217,11 @@ pub mod palette {
     /// "flare" centrale si simula con lo stop iniziale.
     pub fn app_gradient() -> iced::Gradient {
         use iced::Gradient;
+        if crate::appearance::active() {
+            return Gradient::Linear(iced_core::gradient::Linear::new(1.2)
+                .add_stop(0.0, Color::from_rgb8(7, 27, 20))
+                .add_stop(1.0, Color::from_rgb8(3, 14, 10)));
+        }
         Gradient::Linear(
             iced_core::gradient::Linear::new(1.2)   // angolo in radianti: diagonale
                 .add_stop(0.0, Color { r: 0.030, g: 0.140, b: 0.128, a: 1.0 })
@@ -228,6 +238,12 @@ pub mod palette {
     /// collaterale.
     pub fn app_gradient_alpha(alpha: f32) -> iced::Gradient {
         use iced::Gradient;
+        if crate::appearance::active() {
+            let a = if crate::appearance::earth() { 0.35 } else { 1.0 };
+            return Gradient::Linear(iced_core::gradient::Linear::new(1.2)
+                .add_stop(0.0, Color { a, ..Color::from_rgb8(7, 27, 20) })
+                .add_stop(1.0, Color { a, ..Color::from_rgb8(3, 14, 10) }));
+        }
         let a = alpha.clamp(0.0, 1.0);
         Gradient::Linear(
             iced_core::gradient::Linear::new(1.2)
@@ -288,7 +304,7 @@ pub mod btn {
     }
 
     fn base(accent: Color, bg: Color, border_a: f32) -> Style {
-        Style {
+        crate::appearance::button(Style {
             background: Some(iced::Background::Color(bg)),
             text_color: accent,
             border: Border {
@@ -297,21 +313,21 @@ pub mod btn {
                 radius: RADIUS.into(),
             },
             shadow: Shadow::default(),
-        }
+        })
     }
 
     /// Azione principale: accento pieno, alone in hover.
     pub fn primary(_: &Theme, status: Status) -> Style {
         let s = base(Color::WHITE, Color { r: 0.05, g: 0.30, b: 0.40, a: 1.0 }, 0.45);
         match status {
-            Status::Hovered => Style {
+            Status::Hovered => crate::appearance::button(Style {
                 shadow: crate::palette::glow(Color { r: 0.10, g: 0.55, b: 0.75, a: 1.0 }, 0.40),
                 ..s
-            },
-            Status::Pressed => Style {
+            }),
+            Status::Pressed => crate::appearance::button(Style {
                 background: Some(iced::Background::Color(Color { r: 0.04, g: 0.22, b: 0.30, a: 1.0 })),
                 ..s
-            },
+            }),
             _ => s,
         }
     }
@@ -325,22 +341,22 @@ pub mod btn {
     /// e il colore arriva solo all'hover, cosi' l'icona di chiusura non
     /// compete con l'avviso che sta chiudendo.
     pub fn ghost(_: &Theme, status: Status) -> Style {
-        let s = Style {
+        let s = crate::appearance::button(Style {
             background: None,
             text_color: Color { r: 0.58, g: 0.72, b: 0.75, a: 0.75 },
             border: Border { color: Color::TRANSPARENT, width: 0.0, radius: RADIUS.into() },
             shadow: Shadow::default(),
-        };
+        });
         match status {
-            Status::Hovered => Style {
+            Status::Hovered => crate::appearance::button(Style {
                 background: Some(iced::Background::Color(Color { r: 0.12, g: 0.22, b: 0.24, a: 0.9 })),
                 text_color: Color { r: 0.88, g: 0.97, b: 0.98, a: 1.0 },
                 ..s
-            },
-            Status::Pressed => Style {
+            }),
+            Status::Pressed => crate::appearance::button(Style {
                 background: Some(iced::Background::Color(Color { r: 0.09, g: 0.17, b: 0.19, a: 0.95 })),
                 ..s
-            },
+            }),
             _ => s,
         }
     }
@@ -356,7 +372,7 @@ pub mod btn {
     /// contorno. Il testo resta ad alto contrasto perche' il fondo e' quello
     /// che si schiarisce, non la scritta.
     pub fn glass(_: &Theme, status: Status) -> Style {
-        let s = Style {
+        let s = crate::appearance::button(Style {
             background: Some(iced::Background::Color(
                 Color { r: 0.62, g: 0.82, b: 0.88, a: 0.14 },
             )),
@@ -369,9 +385,9 @@ pub mod btn {
             shadow: crate::palette::glow(
                 Color { r: 0.20, g: 0.70, b: 0.85, a: 1.0 }, 0.22,
             ),
-        };
+        });
         match status {
-            Status::Hovered => Style {
+            Status::Hovered => crate::appearance::button(Style {
                 background: Some(iced::Background::Color(
                     Color { r: 0.70, g: 0.90, b: 0.96, a: 0.24 },
                 )),
@@ -384,13 +400,13 @@ pub mod btn {
                 shadow: crate::palette::glow(
                     Color { r: 0.30, g: 0.80, b: 0.95, a: 1.0 }, 0.40,
                 ),
-            },
-            Status::Pressed => Style {
+            }),
+            Status::Pressed => crate::appearance::button(Style {
                 background: Some(iced::Background::Color(
                     Color { r: 0.55, g: 0.78, b: 0.85, a: 0.32 },
                 )),
                 ..s
-            },
+            }),
             _ => s,
         }
     }
@@ -400,7 +416,7 @@ pub mod btn {
         let s = base(Color { r: 0.74, g: 0.86, b: 0.88, a: 1.0 },
                      Color { r: 0.045, g: 0.085, b: 0.095, a: 1.0 }, 0.22);
         match status {
-            Status::Hovered => Style {
+            Status::Hovered => crate::appearance::button(Style {
                 background: Some(iced::Background::Color(Color { r: 0.08, g: 0.17, b: 0.19, a: 1.0 })),
                 border: Border {
                     color: Color { r: 0.20, g: 0.62, b: 0.72, a: 0.55 },
@@ -408,11 +424,11 @@ pub mod btn {
                     radius: RADIUS.into(),
                 },
                 ..s
-            },
-            Status::Pressed => Style {
+            }),
+            Status::Pressed => crate::appearance::button(Style {
                 background: Some(iced::Background::Color(Color { r: 0.03, g: 0.10, b: 0.11, a: 1.0 })),
                 ..s
-            },
+            }),
             _ => s,
         }
     }
@@ -424,14 +440,14 @@ pub mod btn {
         // pericoloso. Un'azione distruttiva deve leggersi da lontano.
         let s = base(Color::WHITE, Color { r: 0.58, g: 0.09, b: 0.13, a: 1.0 }, 0.65);
         match status {
-            Status::Hovered => Style {
+            Status::Hovered => crate::appearance::button(Style {
                 shadow: crate::palette::glow(Color { r: 0.90, g: 0.12, b: 0.18, a: 1.0 }, 0.35),
                 ..s
-            },
-            Status::Pressed => Style {
+            }),
+            Status::Pressed => crate::appearance::button(Style {
                 background: Some(iced::Background::Color(Color { r: 0.26, g: 0.03, b: 0.06, a: 1.0 })),
                 ..s
-            },
+            }),
             _ => s,
         }
     }
@@ -455,17 +471,17 @@ pub mod btn {
             0.75,
         );
         match status {
-            Status::Hovered => Style {
+            Status::Hovered => crate::appearance::button(Style {
                 shadow: crate::palette::glow(alone, 0.38),
                 ..s
-            },
-            Status::Pressed => Style {
+            }),
+            Status::Pressed => crate::appearance::button(Style {
                 // Premuto: si scurisce, non cambia tinta.
                 background: Some(iced::Background::Color(
                     Color { r: r * 0.7, g: g * 0.7, b: b * 0.7, a: 1.0 },
                 )),
                 ..s
-            },
+            }),
             _ => s,
         }
     }
@@ -516,31 +532,31 @@ pub mod btn {
             0.30,
         );
         // Bordo colorato: e' il bordo del vetto che prende la luce.
-        let s = Style {
+        let s = crate::appearance::button(Style {
             border: Border {
                 color: Color { r, g, b, a: 0.55 },
                 width: 1.0,
                 radius: RADIUS.into(),
             },
             ..s
-        };
+        });
         match status {
-            Status::Hovered => Style {
+            Status::Hovered => crate::appearance::button(Style {
                 shadow: crate::palette::glow(pieno, 0.50),
                 // In hover il vetro si illumina leggermente: dice "premi qui".
                 background: Some(iced::Background::Color(
                     Color { r: 0.06, g: 0.11, b: 0.15, a: 0.90 },
                 )),
                 ..s
-            },
-            Status::Pressed => Style {
+            }),
+            Status::Pressed => crate::appearance::button(Style {
                 background: Some(iced::Background::Color(
                     Color { r: 0.02, g: 0.04, b: 0.06, a: 0.92 },
                 )),
                 shadow: crate::palette::glow(pieno, 0.28),
                 ..s
-            },
-            Status::Disabled => Style {
+            }),
+            Status::Disabled => crate::appearance::button(Style {
                 background: Some(iced::Background::Color(
                     Color { r: 0.05, g: 0.06, b: 0.07, a: 0.55 },
                 )),
@@ -551,7 +567,7 @@ pub mod btn {
                     radius: RADIUS.into(),
                 },
                 ..s
-            },
+            }),
             _ => s,
         }
     }
@@ -679,6 +695,11 @@ pub mod btn {
 }
 
 fn main() {
+
+    if std::env::args().any(|arg| arg == "--preview-home") {
+        chart_preview::run_home();
+        return;
+    }
     if std::env::args().any(|arg| arg == "--preview-grafici")
         || std::env::current_exe().ok().and_then(|p| p.file_stem().map(|s|s.to_string_lossy().into_owned()))
             .is_some_and(|name|name.ends_with("-Preview")) {
@@ -687,7 +708,7 @@ fn main() {
     }
     if recovery::supervise() { return; }
     let previous_hook=std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |info| {recovery::log(&format!("PANIC: {info}"));previous_hook(info);}));
+    std::panic::set_hook(Box::new(move |info| {recovery::log(&format!("PANIC: {info}\n{}",std::backtrace::Backtrace::force_capture()));previous_hook(info);}));
     // ── Guardia sugli offset di regime ────────────────────────────────
     //
     // Il cambio di regime scrive `0x14` (setpoint offset). Nello stesso
@@ -821,6 +842,10 @@ thread_local! {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    ToggleAppearance,
+    ChartHistory(usize),
+    ChartOverview,
+    ToggleEarth,
     Tick,
     /// Ridisegna **solo** i grafici, senza toccare nient'altro.
     ///
@@ -1274,18 +1299,6 @@ impl HomeState {
             .push(title_by)
             .push(brand_tag);
 
-        #[cfg(target_os = "windows")]
-        let autostart_toggle: Element<'_, Message> = {
-            let toggler = iced::widget::Toggler::new(self.autostart_enabled)
-                    .style(crate::btn::toggler);
-            let toggler = toggler.label("Avvio automatico con Windows");
-            let toggler = toggler.on_toggle(|enabled| Message::AutostartToggled(enabled));
-            toggler.into()
-        };
-
-        #[cfg(not(target_os = "windows"))]
-        let autostart_toggle = Text::new("").size(1);
-
         // Pannello di scansione. Prima era una stringa tipo "[==   ]" dentro
         // un bottone: non communicate nulla e sembrava un bottone che non
         // risponde. Ora e' un box con testo, puntini animati e barra reale.
@@ -1309,13 +1322,13 @@ impl HomeState {
                         )
                         .width(Length::Fill)
                         .height(Length::Fixed(4.0))
-                        .style(|_: &iced::Theme| iced::widget::container::Style {
+                        .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                             background: Some(iced::Background::Color(
                                 iced::Color { r: 0.20, g: 0.75, b: 0.95, a: 1.0 })),
                             border: iced::Border::default(),
                             text_color: None,
                             shadow: iced::Shadow::default(),
-                        }),
+                        })),
                     )
                     .push(
                         Text::new("Connessione automatica in corso — non serve fare nulla.")
@@ -1324,7 +1337,7 @@ impl HomeState {
             )
             .padding([10, 12])
             .width(Length::Fill)
-            .style(|_: &iced::Theme| iced::widget::container::Style {
+            .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                 background: Some(iced::Background::Color(
                     iced::Color { r: 0.05, g: 0.10, b: 0.10, a: 1.0 })),
                 border: iced::Border {
@@ -1335,7 +1348,7 @@ impl HomeState {
                 text_color: None,
                 shadow: palette::glow(
                     iced::Color { r: 0.05, g: 0.20, b: 0.25, a: 1.0 }, 0.35),
-            })
+            }))
             .into()
         } else {
             iced::widget::button(
@@ -1436,7 +1449,7 @@ impl HomeState {
             .push(auto_detect_btn)
             .push(retry_btn)
             .push(scan_line)
-            .push(autostart_toggle)
+
             .push(version_line);
 
         // Dettaglio tecnico solo se qualcosa e' andato storto: la diagnostica
@@ -1449,7 +1462,7 @@ impl HomeState {
                     )
                     .padding([8, 12])
                     .max_width(560.0)
-                    .style(|_: &iced::Theme| iced::widget::container::Style {
+                    .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                         background: Some(iced::Background::Color(
                             iced::Color { r: 0.10, g: 0.03, b: 0.04, a: 0.9 })),
                         border: iced::Border {
@@ -1459,7 +1472,7 @@ impl HomeState {
                         },
                         text_color: None,
                         shadow: iced::Shadow::default(),
-                    }),
+                    })),
                 );
             }
         }
@@ -1512,6 +1525,7 @@ enum State {
 impl CryoCoolerController {
 
     pub fn theme(&self) -> Theme {
+        if appearance::active() { return appearance::theme(); }
         // Tema dinamico: il colore di sfondo vira con la temperatura TEC
         // Idle/default: verde petrolio H=161°
         // Cryo attivo < -8°C: blu ghiaccio H=200°
@@ -1542,6 +1556,7 @@ impl CryoCoolerController {
     }
 
     fn new() -> (Self, Task<Message>) {
+        appearance::load();
         (
             CryoCoolerController {
                 state: State::Home(HomeState::new()),
@@ -1599,6 +1614,16 @@ impl CryoCoolerController {
         }
 
         match message {
+            Message::ToggleAppearance => { appearance::toggle(); return Task::none(); }
+            Message::ChartHistory(group) => {
+                if let State::Running(s) = &mut self.state { s.show_chart_history(Some(group)); }
+                return Task::none();
+            }
+            Message::ChartOverview => {
+                if let State::Running(s) = &mut self.state { s.show_chart_history(None); }
+                return Task::none();
+            }
+            Message::ToggleEarth => { appearance::toggle_earth(); return Task::none(); }
             Message::ReconnectController(resume) => {
                 self.resume_after_connect = resume;
                 let mut home = HomeState::new();
@@ -1723,7 +1748,10 @@ impl CryoCoolerController {
 
     pub fn view(&self) -> Element<'_, Message> {
         match &self.state {
-            State::Home(s)    => s.view(),
+            State::Home(s) => iced::widget::column![
+                iced::widget::row![appearance::switch(), appearance::earth_switch()].spacing(6),
+                s.view()
+            ].into(),
             State::Running(s) => s.view(),
         }
     }

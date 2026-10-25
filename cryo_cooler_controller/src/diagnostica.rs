@@ -1129,18 +1129,18 @@ mod test_ocp_una_volta_sola {
         );
     }
 
-    /// Il testo che resta deve dire che non c'e' azione da fare: e' la
-    /// cosa che l'utente cerca in una diagnostica, e non un'altra frase
-    /// da interpretare.
+    /// The panel and exported report must not dismiss OCP as harmless noise.
     #[test]
-    fn il_testo_che_resta_dice_che_non_c_e_azione() {
+    fn ocp_segnala_incertezza_e_verifiche_anche_nel_rapporto() {
         let e = valuta(Esito::vuoto(), stato_sano() | TecStatus::OCP_ACTIVE);
         let riga = e.problemi.iter().find(|p| p.contains("OCP")).unwrap();
         let basso = riga.to_lowercase();
         assert!(
-            basso.contains("nessuna azione") || basso.contains("non e' una protezione"),
-            "il testo deve dire che non c'e' azione: {riga}"
+            basso.contains("non distingue") && basso.contains("verifica alimentazione")
+                && !basso.contains("nessuna azione") && !basso.contains("cb1"),
+            "OCP richiede una descrizione prudente, non una diagnosi certa: {riga}"
         );
+        assert!(e.riga_log("test").contains(riga));
     }
 }
 

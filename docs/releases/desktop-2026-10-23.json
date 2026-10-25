@@ -1,0 +1,9 @@
+{
+  "release": "v2.9.0",
+  "desktop_build": "R16 / 2026-10-23 TF2 single-reader update",
+  "internal_package_version": "2.5.0",
+  "filename": "StargateCryo-GEN1-TEC2-R16.exe",
+  "sha256": "DFB9CAE8468DA8DC7114B85D5E534001712179E73EDB034CEF60599636DDB8F8",
+  "source_snapshot": "stargate-cryo-fixed",
+  "provenance": "Desktop binary matches the recorded integration note. Source snapshot contains the documented changes; byte-for-byte reproducible build has not been established."
+}

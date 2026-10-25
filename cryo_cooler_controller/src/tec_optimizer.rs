@@ -7,6 +7,7 @@ pub struct Regulator {
     baseline: Option<(f32, f32, f32, f32)>, // cold, watts, board, previous offset
     settle_until: f64,
     hold_until: f64,
+    loop_derating: f32,
 }
 impl Regulator {
     pub fn reset(&mut self) { *self = Self::default(); }
@@ -20,6 +21,31 @@ impl Regulator {
         self.update_with_cpu(now,cold,dew,board,watts,offset,budget,board_limit,target_margin,None)
     }
     pub fn update_with_cpu(&mut self, now:f64,cold:f32,dew:f32,board:f32,
+        watts:f32,offset:f32,budget:f32,board_limit:f32,target_margin:f32,cpu:Option<f32>)->Option<f32> {
+        self.update_with_loop(now,cold,dew,board,watts,offset,budget,board_limit,target_margin,cpu,None)
+    }
+    pub fn update_with_loop(&mut self, now:f64,cold:f32,dew:f32,board:f32,
+        watts:f32,offset:f32,budget:f32,board_limit:f32,target_margin:f32,cpu:Option<f32>,loop_coolant:Option<f32>)->Option<f32> {
+        let coolant=loop_coolant.filter(|t| t.is_finite() && (0.0..=80.0).contains(t));
+        // Software tuning policy, not a TF3/TEC manufacturer temperature limit.
+        // Keep the restriction through missing readings until cooling is confirmed.
+        if let Some(t)=coolant {
+            if t<=36.0 { self.loop_derating=0.0; }
+            else if t>=38.0 { self.loop_derating=((t-38.0)*0.125).clamp(0.05,0.5); }
+        }
+        let derating=self.loop_derating;
+        let effective_budget=if budget.is_finite() && (0.0..=200.0).contains(&budget) { budget*(1.0-derating) } else { budget };
+        let result=self.update_feedback(now,cold,dew,board,watts,offset,effective_budget,board_limit,target_margin,cpu);
+        // Invalid controller data or a clock reset must not release a hot-loop latch.
+        self.loop_derating=derating;
+        if derating>0.0 && self.status!="Sensori non validi: nessun aumento"
+            && cold-dew>=1.5 && board<board_limit {
+            self.status=if coolant.is_none() { "TF3 non disponibile: riduzione termica mantenuta" }
+                else { "TF3: obiettivo watt ridotto per liquido caldo" };
+        }
+        result
+    }
+    fn update_feedback(&mut self, now:f64,cold:f32,dew:f32,board:f32,
         watts:f32,offset:f32,budget:f32,board_limit:f32,target_margin:f32,cpu:Option<f32>)->Option<f32> {
         // Cooling priority hint, not a processor-specific shutdown threshold.
         let hot_cpu=cpu.map_or(false, |t| t.is_finite() && (85.0..=150.0).contains(&t));
@@ -73,6 +99,48 @@ impl Regulator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn loop_update(r:&mut Regulator,now:f64,watts:f32,offset:f32,coolant:Option<f32>)->Option<f32> {
+        r.update_with_loop(now,25.0,15.0,28.0,watts,offset,200.0,66.0,3.5,Some(90.0),coolant)
+    }
+    #[test] fn liquid_derates_measured_budget_even_for_hot_cpu() {
+        let mut r=Regulator::default();
+        assert_eq!(loop_update(&mut r,0.0,180.0,3.0,Some(40.0)),Some(4.0));
+        assert_eq!(r.loop_derating,0.25);
+        assert!(r.status.starts_with("TF3:"));
+        assert_eq!(loop_update(&mut r,10.0,180.0,4.0,Some(40.0)),None);
+        assert_eq!(loop_update(&mut r,31.0,180.0,4.0,Some(40.0)),Some(5.0));
+        // Once measured watts fit the reduced budget there is no blind repeated increase.
+        assert_ne!(loop_update(&mut r,62.0,130.0,5.0,Some(40.0)),Some(6.0));
+    }
+    #[test] fn liquid_hysteresis_and_missing_samples_keep_restriction() {
+        let mut r=Regulator::default();
+        loop_update(&mut r,0.0,180.0,3.0,Some(40.0));
+        for (now,t) in [(31.0,Some(37.0)),(62.0,None),(93.0,Some(f32::NAN)),(124.0,Some(200.0))] {
+            assert_eq!(loop_update(&mut r,now,180.0,4.0,t),Some(5.0));
+            assert_eq!(r.loop_derating,0.25);
+        }
+        assert!(r.status.contains("non disponibile"));
+        loop_update(&mut r,155.0,180.0,5.0,Some(36.0));
+        assert_eq!(r.loop_derating,0.0);
+    }
+    #[test] fn liquid_policy_has_bounded_entry_and_maximum() {
+        let mut r=Regulator::default();
+        loop_update(&mut r,0.0,100.0,3.0,Some(37.9));
+        assert_eq!(r.loop_derating,0.0);
+        loop_update(&mut r,31.0,100.0,3.0,Some(38.0));
+        assert_eq!(r.loop_derating,0.05);
+        loop_update(&mut r,62.0,100.0,3.0,Some(70.0));
+        assert_eq!(r.loop_derating,0.5);
+    }
+    #[test] fn liquid_does_not_replace_primary_protections_or_input_validation() {
+        let mut r=Regulator::default();
+        assert_eq!(r.update_with_loop(0.0,15.5,15.0,28.0,20.0,3.0,200.0,66.0,3.5,Some(90.0),Some(40.0)),Some(4.0));
+        assert!(r.status.contains("condensa"));
+        assert_eq!(r.update_with_loop(3.0,25.0,15.0,70.0,20.0,4.0,200.0,66.0,3.5,Some(90.0),None),Some(6.0));
+        assert_eq!(r.update_with_loop(40.0,25.0,15.0,28.0,20.0,6.0,300.0,66.0,3.5,None,None),None);
+        assert!(r.status.contains("non validi"));
+        assert_eq!(r.loop_derating,0.25);
+    }
     #[test] fn measured_watts_override_fake_percentage() {
         assert_eq!(Regulator::default().update(0.0,30.0,15.0,28.0,250.0,-3.0,200.0,36.0),Some(-2.0));
     }

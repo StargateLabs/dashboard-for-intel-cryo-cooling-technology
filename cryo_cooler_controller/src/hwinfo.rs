@@ -484,7 +484,9 @@ mod platform {
 
         // FIX: classificazione per PREFISSO ID con precedenza sul tag XML
         // I prefissi ID di AIDA64 sono definitivi e non ambigui
-        let sensor_type = if id_up.starts_with('T') || tag == "temp" {
+        let sensor_type = if id_up.starts_with("SCC-") || id_up.ends_with("CLK") || id_up == "SCPUFSB" {
+            SensorType::Clock
+        } else if id_up.starts_with('T') || tag == "temp" {
             SensorType::Temperature
         } else if id_up.starts_with('F') || tag == "fan" {
             SensorType::Fan
@@ -610,6 +612,15 @@ mod platform {
     #[cfg(test)]
     mod tests {
         use super::*;
+        #[test]
+        fn aida_system_core_clocks_are_mhz_not_percent() {
+            for id in ["SCC-1-1", "SCC-1-24", "SCPUCLK", "SGPU1CLK", "SCPUFSB"] {
+                let (kind,unit,_) = aida64_classify(id,"sys","Clock");
+                assert_eq!(kind,SensorType::Clock);
+                assert_eq!(unit,"MHz");
+            }
+            assert_eq!(aida64_classify("SCPUUTI","sys","CPU Utilization").0,SensorType::Load);
+        }
         #[test]
         fn cpu_die_wins_over_generic_cpu_and_hottest_core_breaks_ties() {
             let readings = [("TCPU",54.0),("TCPUDIE",80.0),("TCPUCORE1",90.0)]

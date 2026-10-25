@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use iced::{
     widget::{
         canvas::{Cache, Frame, Geometry},
-        Column, Container,
+        Column, Container, Text,
     },
     Element, Length, Size,
 };
@@ -44,7 +44,7 @@ fn presentation_points(points: &VecDeque<(DateTime<Utc>, f32)>, end: DateTime<Ut
     result
 }
 fn refresh_frame(cache: &Cache, slot: &std::cell::Cell<i64>) {
-    let frame=Utc::now().timestamp_millis()/ANIMATION_MS as i64;
+    let frame=(Utc::now().timestamp_millis()/ANIMATION_MS as i64)*2 + i64::from(crate::appearance::active());
     if slot.replace(frame)!=frame { cache.clear(); }
 }
 
@@ -100,6 +100,19 @@ mod presentation_tests {
         assert_eq!(overlap.tec.len(),1);
         assert_eq!(overlap.y_finestra.get(),Some(range));
     }
+    #[test]
+    fn opening_group_history_is_reversible_and_preserves_samples() {
+        let mut charts=ChartGroup::default();
+        charts.tec_temp.push(Utc::now(),18.62);
+        let before=charts.tec_temp.points.clone();
+        charts.show_history(Some(0));
+        assert_eq!(charts.history_group,Some(0));
+        charts.show_history(None);
+        assert_eq!(charts.history_group,None);
+        charts.show_history(Some(99));
+        assert_eq!(charts.history_group,None);
+        assert_eq!(charts.tec_temp.points,before);
+    }
 }
 
 fn hover_at(x: Option<f32>, points: &VecDeque<(DateTime<Utc>, f32)>, bounds: iced::Rectangle, end: DateTime<Utc>, window: Duration) -> Option<usize> {
@@ -143,6 +156,7 @@ const C_PCB_TEMP:  RGBColor = RGBColor(255, 200,  60);  // gold  — PCB
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub struct ChartGroup {
+    history_group: Option<usize>,
     tec_temp:  MonitoringChart,
     dew_point: MonitoringChart,
     overlap:   OverlapChart,     // grafico composito TEC+CPU+Dew
@@ -152,11 +166,24 @@ pub struct ChartGroup {
     power_pct: MonitoringChart,
     humidity:  MonitoringChart,
     pcb_temp:  MonitoringChart,
+    tf3_coolant: MonitoringChart,
+    tf3_ambient: MonitoringChart,
+    tf3_pressure: MonitoringChart,
+    tf3_live: bool,
+    tf2_flow: MonitoringChart,
+    tf2_live: bool,
 }
 
 impl Default for ChartGroup {
     fn default() -> Self {
         Self {
+            history_group: None,
+            tf3_coolant: MonitoringChart::new("Refrigerante", 20.0,40.0,"°C", C_TEC_TEMP),
+            tf3_ambient: MonitoringChart::new("Temp. Ambiente",20.0,30.0,"°C", C_HUMIDITY),
+            tf3_pressure: MonitoringChart::new("Pressione Custom Loop",0.0,0.5,"bar",C_CURRENT),
+            tf3_live: false,
+            tf2_flow: MonitoringChart::new("Portata Flusso CL", 0.0, 400.0, "L/h", C_PCB_TEMP),
+            tf2_live: false,
             overlap:   OverlapChart::new(),
             tec_temp:  MonitoringChart::new("Temp. TEC",       -20.0,  10.0, "°C", C_TEC_TEMP),
             dew_point: MonitoringChart::new("Punto di rugiada",-15.0,  25.0, "°C", C_DEW_POINT),
@@ -165,7 +192,7 @@ impl Default for ChartGroup {
             power_w:   MonitoringChart::new("Potenza TEC",       0.0, 200.0, "W",  C_POWER_W),
             power_pct: MonitoringChart::new("Livello potenza",   0.0, 100.0, "%",  C_POWER_PCT),
             humidity:  MonitoringChart::new("Umidità",          30.0,  80.0, "%",  C_HUMIDITY),
-            pcb_temp:  MonitoringChart::new("Temp. scheda",     20.0,  60.0, "°C", C_PCB_TEMP),
+            pcb_temp:  MonitoringChart::new("Temp. Controller PCB",     20.0,  60.0, "°C", C_PCB_TEMP),
         }
     }
 }
@@ -235,28 +262,161 @@ impl ChartGroup {
         self.overlap.push_cpu(cpu_temp);
     }
 
+    pub fn update_tf3(&mut self, sample: Option<(DateTime<Utc>, crate::tf3::Reading)>) {
+        if let Some((time, r)) = sample {
+            if !self.tf3_live {
+                for chart in [&mut self.tf3_coolant, &mut self.tf3_ambient, &mut self.tf3_pressure] {
+                    chart.points.clear(); chart.cache.clear();
+                }
+            }
+            self.tf3_coolant.push(time,r.coolant_c);
+            self.tf3_ambient.push(time,r.ambient_c);
+            self.tf3_pressure.push(time,r.pressure_bar);
+            self.tf3_live=true;
+        } else { self.tf3_live=false; }
+    }
+    pub fn update_tf2(&mut self, sample: Option<(DateTime<Utc>, crate::tf2::Reading)>) {
+        if let Some((time, r)) = sample {
+            if !self.tf2_live { self.tf2_flow.points.clear(); self.tf2_flow.cache.clear(); }
+            self.tf2_flow.push(time, r.flow_lph);
+            self.tf2_live = true;
+        } else { self.tf2_live = false; }
+    }
+    fn view_tf3(&self) -> Element<'_, Message> {
+        let tile = |chart| -> Element<'_, Message> {
+            if self.tf3_live { chart_fill(chart) }
+            else { Container::new(Text::new("TF3 · dati USB N/D").size(12)
+                .color(crate::palette::BLUE_DIM)).center(Length::Fill).into() }
+        };
+        let flow: Element<'_, Message> = if self.tf2_live { chart_fill(&self.tf2_flow) } else { Container::new(Column::new().spacing(8)
+            .push(Text::new("Portata Flusso CL · L/h").size(14).color(crate::palette::BLUE_DIM))
+            .push(Text::new("N/D · sensore non disponibile").size(12)
+                .color(crate::palette::BLUE_DIM)))
+            .center(Length::Fill)
+            .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
+                background: Some(iced::Background::Color(iced::Color { r: 0.009, g: 0.065, b: 0.050, a: 0.86 })),
+                border: iced::Border { color: iced::Color { r: 0.0, g: 0.55, b: 0.35, a: 0.20 }, width: 1.0, radius: 8.0.into() },
+                ..Default::default()
+            })).into() };
+        Column::new().spacing(6)
+            .push(Row::new().spacing(6).push(tile(&self.tf3_coolant))
+                .push(tile(&self.tf3_ambient)).height(Length::Fixed(96.0)))
+            .push(Row::new().spacing(6).push(tile(&self.tf3_pressure))
+                .push(flow).height(Length::Fixed(96.0)))
+            .height(Length::Fixed(198.0)).width(Length::Fill).into()
+    }
+
     /// Layout a colonna singola — per finestre strette (portrait) o medie.
     /// Tutti i grafici in colonna verticale, nessuno scrolling.
     pub fn view(&self) -> Element<'_, Message> {
+        if crate::appearance::active() { return self.view_subzero(2); }
         Column::new()
             .width(Length::Fill)
             .height(Length::Fill)
             .spacing(4)
             .padding([0, 0])
-            .push(group_label("TERMICA CRITICA — TEC + CPU + Rugiada"))
             .push(overlap_card(&self.overlap))
             .push(chart_fill(&self.tec_temp))
             .push(chart_fill(&self.dew_point))
-            .push(group_label("ELETTRICA"))
-            .push(chart_fill(&self.voltage))
+            .push(chart_section(&self.voltage,"ELETTRICA"))
             .push(chart_fill(&self.current))
-            .push(group_label("POTENZA"))
-            .push(chart_fill(&self.power_w))
+            .push(chart_section(&self.power_w,"POTENZA"))
             .push(chart_fill(&self.power_pct))
-            .push(group_label("AMBIENTE"))
-            .push(chart_fill(&self.humidity))
+            .push(chart_section(&self.humidity,"AMBIENTE"))
             .push(chart_fill(&self.pcb_temp))
+            .push(self.view_tf3())
             .into()
+    }
+
+    pub fn show_history(&mut self, group: Option<usize>) {
+        self.history_group = group.filter(|g| *g < 6);
+    }
+
+    fn view_subzero(&self, columns: usize) -> Element<'_, Message> {
+        if let Some(group) = self.history_group { return self.group_history(group); }
+        let mut layout=Column::new().spacing(8).width(Length::Fill).height(Length::Fill);
+        for first in (0..6).step_by(columns) {
+            let mut row=Row::new().spacing(8).height(Length::FillPortion(1));
+            for group in first..(first+columns).min(6) { row=row.push(self.cluster_card(group)); }
+            layout=layout.push(row);
+        }
+        layout.into()
+    }
+
+    fn cluster_card(&self, group: usize) -> Element<'_, Message> {
+        use crate::gauge::{Cluster,Instrument};
+        let cyan=iced::Color::from_rgb8(45,224,172);
+        let violet=iced::Color::from_rgb8(97,197,169);
+        let gold=iced::Color::from_rgb8(168,224,133);
+        let mint=iced::Color::from_rgb8(70,238,186);
+        let rose=iced::Color::from_rgb8(121,207,190);
+        let measure=|chart:&MonitoringChart,live:bool,color:iced::Color| {
+            let value=chart.points.front().filter(|_|live).map(|p|p.1);
+            let (min,max)=chart.dial_bounds();
+            Instrument{value,min,max,color,reading:value.map(|v|format!("{v:.2}")).unwrap_or_else(||"N/D".into()),unit:chart.unit.clone()}
+        };
+        let (title,primary_label,accent,primary,secondary_label,secondary)=match group {
+            0=>("Termica TEC","PIASTRA TEC",cyan,measure(&self.tec_temp,true,cyan),"Rugiada",measure(&self.dew_point,true,violet)),
+            1=>("Potenza & carico","POTENZA TEC",gold,measure(&self.power_w,true,gold),"Livello",measure(&self.power_pct,true,mint)),
+            2=>("Alimentazione TEC","TENSIONE",violet,measure(&self.voltage,true,violet),"Corrente",measure(&self.current,true,cyan)),
+            3=>("Liquido & controller","REFRIGERANTE",mint,measure(&self.tf3_coolant,self.tf3_live,mint),"Controller PCB",measure(&self.pcb_temp,true,rose)),
+            4=>("Ambiente & umidità","AMBIENTE TF3",cyan,measure(&self.tf3_ambient,self.tf3_live,cyan),"Umidità",measure(&self.humidity,true,mint)),
+            _=>("Flusso & pressione","PORTATA TF2",rose,measure(&self.tf2_flow,self.tf2_live,rose),"Pressione",measure(&self.tf3_pressure,self.tf3_live,gold)),
+        };
+        let mut details=vec![(secondary_label.to_owned(),format!("{} {}",secondary.reading,secondary.unit),secondary.color)];
+        if group==0 {
+            let cpu=self.overlap.cpu.front().filter(|p|(Utc::now()-p.0).num_seconds()<=5).map(|p|p.1);
+            details.push(("CPU".into(),cpu.map(|v|format!("{v:.2} °C")).unwrap_or_else(||"N/D".into()),gold));
+            let margin=self.tec_temp.points.front().zip(self.dew_point.points.front()).map(|(t,d)|t.1-d.1);
+            let color=match margin {Some(v) if v<0.0=>crate::palette::DANGER,Some(v) if v<2.0=>crate::palette::WARNING,Some(_)=>mint,None=>crate::palette::BLUE_DIM};
+            details.push(("Margine".into(),margin.map(|v|format!("{v:+.1} °C")).unwrap_or_else(||"N/D".into()),color));
+        }
+        let history_chart=match group {0=>&self.tec_temp,1=>&self.power_w,2=>&self.voltage,
+            3=>&self.tf3_coolant,4=>&self.tf3_ambient,_=>&self.tf2_flow};
+        let history=if primary.value.is_some() {
+            let range=history_chart.points.iter().filter(|p|(Utc::now()-p.0).num_seconds()<=180)
+                .map(|p|p.1).filter(|v|v.is_finite())
+                .fold(None,|range:Option<(f32,f32)>,v|Some(range.map_or((v,v),|(lo,hi)|(lo.min(v),hi.max(v)))));
+            range.map(|(lo,hi)|format!("180 s   MIN {lo:.2}   /   MAX {hi:.2} {}",primary.unit)).unwrap_or_default()
+        }else{String::new()};
+        let dial=iced::widget::canvas(Cluster{channels:vec![primary,secondary],primary_label,details,history})
+            .width(Length::Fill).height(Length::Fill);
+        let heading=Row::new().spacing(8).align_y(iced::Alignment::Center)
+            .push(Text::new(format!("{:02}  /  {}",group+1,title.to_uppercase())).size(11).color(iced::Color::from_rgb8(210,221,237)).width(Length::Fill))
+            .push(iced::widget::button(Text::new("Storico").size(10)).padding([3,7])
+                .style(move |theme,status| {let mut style=crate::btn::ghost(theme,status);style.text_color=accent;style.border.width=0.0;style})
+                .on_press(Message::ChartHistory(group)));
+        Container::new(Column::new().spacing(3).push(heading).push(dial))
+            .padding([8,8]).width(Length::Fill).height(Length::Fill)
+            .style(|_| iced::widget::container::Style{
+                background:Some(iced::Background::Gradient(iced::Gradient::Linear(
+                    iced_core::gradient::Linear::new(1.4)
+                        .add_stop(0.0,iced::Color::from_rgba8(13,42,33,0.77))
+                        .add_stop(0.45,iced::Color::from_rgba8(5,24,19,0.70))
+                        .add_stop(1.0,iced::Color::from_rgba8(3,15,12,0.78))))),
+                border:iced::Border{color:iced::Color::from_rgba8(100,205,163,0.27),width:1.0,radius:6.0.into()},
+                shadow:iced::Shadow{color:iced::Color::from_rgba8(0,0,0,0.12),offset:iced::Vector::new(0.0,3.0),blur_radius:14.0},
+                ..Default::default()
+            }).into()
+    }
+
+    fn group_history(&self, group:usize)->Element<'_,Message> {
+        let charts:Vec<(&MonitoringChart,bool)>=match group {
+            0=>vec![(&self.tec_temp,true),(&self.dew_point,true)],
+            1=>vec![(&self.power_w,true),(&self.power_pct,true)],
+            2=>vec![(&self.voltage,true),(&self.current,true)],
+            3=>vec![(&self.tf3_coolant,self.tf3_live),(&self.pcb_temp,true)],
+            4=>vec![(&self.tf3_ambient,self.tf3_live),(&self.humidity,true)],
+            _=>vec![(&self.tf2_flow,self.tf2_live),(&self.tf3_pressure,self.tf3_live)],
+        };
+        let mut content=Column::new().spacing(10).width(Length::Fill).height(Length::Fill)
+            .push(iced::widget::button(Text::new("Torna ai quadranti").size(12)).style(crate::btn::secondary).on_press(Message::ChartOverview));
+        if group==0 {content=content.push(overlap_card(&self.overlap));}
+        for (chart,live) in charts {
+            if live {content=content.push(chart_fill(chart));}
+            else {content=content.push(Container::new(Text::new(format!("{} / N/D",chart.title)).size(14)).height(Length::FillPortion(1)));}
+        }
+        content.into()
     }
 
     /// Layout a due colonne — per finestre larghe.
@@ -266,11 +426,11 @@ impl ChartGroup {
     /// Qui si divide in due colonne: i gruppi termici a sinistra, elettrici /
     /// potenza / ambiente a destra. Stessa quantità di grafici, altezza dimezzata.
     pub fn view_wide(&self) -> Element<'_, Message> {
+        if crate::appearance::active() { return self.view_subzero(3); }
         let left = Column::new()
             .width(Length::FillPortion(50))
             .height(Length::Fill)
             .spacing(7)
-            .push(group_label("TERMICA CRITICA — TEC + CPU + Rugiada"))
             .push(overlap_card(&self.overlap))
             .push(chart_fill(&self.tec_temp))
             .push(chart_fill(&self.dew_point));
@@ -279,15 +439,13 @@ impl ChartGroup {
             .width(Length::FillPortion(50))
             .height(Length::Fill)
             .spacing(7)
-            .push(group_label("ELETTRICA"))
-            .push(chart_fill(&self.voltage))
+            .push(chart_section(&self.voltage,"ELETTRICA"))
             .push(chart_fill(&self.current))
-            .push(group_label("POTENZA"))
-            .push(chart_fill(&self.power_w))
+            .push(chart_section(&self.power_w,"POTENZA"))
             .push(chart_fill(&self.power_pct))
-            .push(group_label("AMBIENTE"))
-            .push(chart_fill(&self.humidity))
-            .push(chart_fill(&self.pcb_temp));
+            .push(chart_section(&self.humidity,"AMBIENTE"))
+            .push(chart_fill(&self.pcb_temp))
+            .push(self.view_tf3());
 
         Row::new()
             .spacing(0)
@@ -303,27 +461,18 @@ use iced::widget::Row;
 
 // ── Helpers layout ────────────────────────────────────────────────────────────
 
-fn group_label(text: &'static str) -> Element<'static, Message> {
-    use iced::widget::{Row as IRow, Text};
-    // Solo testo colorato, nessuna linea divisoria
-    IRow::new()
-        .padding(iced::Padding { top: 8.0, right: 8.0, bottom: 2.0, left: 8.0 })
-        .push(
-            Text::new(text)
-                .size(11)
-                .color(
-                    // Verde-azzurro che sposa sia il verde petrolio che il blu
-                    iced::Color { r: 0.10, g: 0.70, b: 0.55, a: 1.0 }
-                ),
-        )
-        .width(Length::Fill)
-        .into()
-}
-
 /// Variante Fill — grafico si espande per riempire la quota proporzionale.
 /// 8 grafici con FillPortion(1) ciascuno si dividono tutto lo spazio verticale.
+fn chart_section<'a>(chart: &'a MonitoringChart, title: &'a str) -> Element<'a, Message> {
+    Column::new().spacing(3)
+        .push(Container::new(Text::new(title).size(9).color(crate::palette::BLUE_DIM))
+            .padding([0, 8]))
+        .push(chart_fill(chart))
+        .width(Length::Fill).height(Length::FillPortion(1)).into()
+}
+
 fn chart_fill(chart: &MonitoringChart) -> Element<'_, Message> {
-    Container::new(
+    crate::appearance::frame(Container::new(
         ChartWidget::new(chart)
             .width(Length::Fill)
             .height(Length::Fill),
@@ -331,12 +480,12 @@ fn chart_fill(chart: &MonitoringChart) -> Element<'_, Message> {
     .width(Length::Fill)
     .height(Length::FillPortion(1))
     .padding(iced::Padding { top: 0.0, right: 0.0, bottom: 0.0, left: 0.0 })
-    .style(|_: &iced::Theme| iced::widget::container::Style {
+    .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
             background: Some(iced::Background::Color(iced::Color { r: 0.009, g: 0.065, b: 0.050, a: 0.86 })),
             border: iced::Border { color: iced::Color { r: 0.0, g: 0.55, b: 0.35, a: 0.20 }, width: 1.0, radius: 8.0.into() },
             text_color: None, shadow: iced::Shadow::default(),
-        })
-    .into()
+        }))
+    .into(), 1)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -379,6 +528,14 @@ pub fn avanzamento(
 }
 
 impl MonitoringChart {
+    fn dial_bounds(&self) -> (f32, f32) {
+        match self.unit.as_str() {
+            "°C" => (-30.0, 100.0), "V" => (0.0, 15.0), "A" => (0.0, 25.0),
+            "W" => (0.0, 300.0), "%" => (0.0, 100.0),
+            "bar" => (0.0, 1.0), "L/h" => (0.0, 500.0), _ => (self.min, self.max),
+        }
+    }
+
     fn new(title: &str, min: f32, max: f32, unit: &str, color: RGBColor) -> Self {
         Self {
             cache: Cache::new(),
@@ -446,9 +603,10 @@ impl MonitoringChart {
         }
         // Margine proporzionato all'ampiezza, con un minimo assoluto: su
         // una serie piatta un margine relativo darebbe una scala di zero.
-        let ampiezza = (hi - lo).max(0.5);
-        let margine = (ampiezza * 0.12).max(0.5);
-        let (nuovo_min, nuovo_max) = (lo - margine, hi + margine);
+        let pressure = self.unit == "bar";
+        let ampiezza = (hi - lo).max(if pressure { 0.05 } else { 0.5 });
+        let margine = (ampiezza * 0.12).max(if pressure { 0.02 } else { 0.5 });
+        let (nuovo_min, nuovo_max) = (if pressure { (lo-margine).max(0.0) } else { lo-margine }, hi + margine);
 
         // Espansione immediata, restringimento graduale.
         self.min = if nuovo_min < self.min {
@@ -561,7 +719,9 @@ impl Chart<Message> for MonitoringChart {
 
         // Caption: titolo + valore corrente (live o hover)
         let caption = if let Some(i) = hover {
-            format!("{}  ·  {:.2} {}", self.title, self.points[i].1, self.unit)
+            if crate::appearance::active() {
+                format!("{:.2} {} · {}", self.points[i].1, self.unit, self.points[i].0.format("%H:%M:%S"))
+            } else { format!("{}  ·  {:.2} {}", self.title, self.points[i].1, self.unit) }
         } else if let Some(&(_, v)) = self.points.front() {
             format!("{}  ·  {:.2} {}", self.title, v, self.unit)
         } else {
@@ -572,7 +732,7 @@ impl Chart<Message> for MonitoringChart {
         let caption_color = &self.color;
 
         let mut chart = match b
-            .caption(caption, ("sans-serif", 14, caption_color))
+            .caption(caption, ("sans-serif", if crate::appearance::active() { 9 } else { 14 }, caption_color))
             .x_label_area_size(18)
             .y_label_area_size(50)
             .margin_top(4)
@@ -596,23 +756,23 @@ impl Chart<Message> for MonitoringChart {
         };
 
         // Mesh grid minimalista
-        let axis_labels = if chart.plotting_area().dim_in_pixel().1 < 85 { 3 } else { 4 };
+        let axis_labels = ((chart.plotting_area().dim_in_pixel().1 / 24) as usize).clamp(2, 4);
         let _ = chart
             .configure_mesh()
-            .bold_line_style(GRID_COLOR)
-            .light_line_style(RGBAColor(20, 60, 120, 0.04))
+            .bold_line_style(if crate::appearance::active() { RGBAColor(90, 155, 95, 0.28) } else { GRID_COLOR })
+            .light_line_style(if crate::appearance::active() { RGBAColor(70, 125, 80, 0.16) } else { RGBAColor(20, 60, 120, 0.04) })
             .axis_style(ShapeStyle::from(C_VOLTAGE.mix(0.08)).stroke_width(0))
             .y_labels(axis_labels)
-            .x_labels(4)
+            .x_labels(if crate::appearance::active() { 2 } else { 4 })
             .y_label_offset(12)
             // Niente `Rotate90`: plotters-iced 0.11 non implementa la
             // rotazione del testo (l'intero blocco e' commentato nel suo
             // backend), quindi il transform era un no-op silenzioso e le
             // label restavano orizzontali, identiche a quelle dell'asse X.
             // Con lo spazio ridotto l'asse si legge meglio.
-            .y_label_style(("sans-serif", 11).into_font().color(&LABEL_CLR))
-            .y_label_formatter(&|y| format!("{:.1}{}", y, self.unit))
-            .x_label_style(("sans-serif", 11).into_font().color(&LABEL_CLR))
+            .y_label_style(("sans-serif", if crate::appearance::active() { 8 } else { 11 }).into_font().color(&LABEL_CLR))
+            .y_label_formatter(&|y| if self.unit == "bar" { format!("{y:.2}") } else { format!("{:.1}{}", y, self.unit) })
+            .x_label_style(("sans-serif", if crate::appearance::active() { 8 } else { 11 }).into_font().color(&LABEL_CLR))
             .x_label_formatter(&|x| x.time().format("%H:%M:%S").to_string())
             .draw();
 
@@ -638,9 +798,9 @@ impl Chart<Message> for MonitoringChart {
             AreaSeries::new(
                 punti,
                 self.min,
-                self.color.mix(0.07),
+                self.color.mix(if crate::appearance::active() { 0.24 } else { 0.07 }),
             )
-            .border_style(ShapeStyle::from(self.color).stroke_width(2)),
+            .border_style(ShapeStyle::from(self.color).stroke_width(if crate::appearance::active() { 1 } else { 2 })),
         );
 
         // Dot live sull'ultimo punto
@@ -676,7 +836,6 @@ fn hover_idx(x: Option<f32>, len: usize, width: f32, off: f32) -> Option<usize> 
 pub struct OverlapChart {
     droplets_cache: Cache,
     cache: Cache,
-    frame_slot: std::cell::Cell<i64>,
     tec:    VecDeque<(DateTime<Utc>, f32)>,
     dew:    VecDeque<(DateTime<Utc>, f32)>,
     cpu:    VecDeque<(DateTime<Utc>, f32)>,
@@ -708,7 +867,6 @@ impl OverlapChart {
         Self {
             droplets_cache: Cache::new(),
             cache: Cache::new(),
-            frame_slot: std::cell::Cell::new(-1),
             tec:    VecDeque::new(),
             dew:    VecDeque::new(),
             cpu:    VecDeque::new(),
@@ -755,6 +913,7 @@ fn overlap_card(chart: &OverlapChart) -> iced::Element<'_, Message> {
         None => format!("● {name}  —"),
     };
     let mut legend = Row::new().spacing(14).padding([3, 12]).height(36).align_y(iced::Alignment::Center)
+        .push(iced::widget::Text::new("TERMICA").size(9).color(crate::palette::BLUE_DIM))
         .push(iced::widget::Text::new(label("TEC",chart.tec.front())).size(11).color(iced::Color::from_rgb8(0,210,255)))
         .push(iced::widget::Text::new(label("CPU",chart.cpu.front())).size(11).color(iced::Color::from_rgb8(255,190,110)))
         .push(iced::widget::Text::new(label("Rugiada",chart.dew.front())).size(11).color(iced::Color::from_rgb8(100,170,255)));
@@ -768,17 +927,17 @@ fn overlap_card(chart: &OverlapChart) -> iced::Element<'_, Message> {
             )
         );
     }
-    Container::new(Column::new().push(legend).push(
+    crate::appearance::frame(Container::new(Column::new().push(legend).push(
         ChartWidget::new(chart).width(Length::Fill).height(Length::Fill)))
     .width(Length::Fill)
     .height(Length::FillPortion(2)) // doppia altezza — grafico più importante
     .padding(iced::Padding { top: 0.0, right: 0.0, bottom: 0.0, left: 0.0 })
-    .style(|_: &iced::Theme| iced::widget::container::Style {
+    .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
             background: Some(iced::Background::Color(iced::Color { r: 0.007, g: 0.055, b: 0.042, a: 0.86 })),
             border: iced::Border { color: iced::Color { r: 0.0, g: 0.7, b: 0.45, a: 0.25 }, width: 1.5, radius: 10.0.into() },
             text_color: None, shadow: crate::palette::glow(iced::Color::from_rgb8(0,180,160),0.12),
-        })
-    .into()
+        }))
+    .into(), 2)
 }
 
 
@@ -836,11 +995,10 @@ impl Chart<Message> for OverlapChart {
         else { iced::mouse::Interaction::Idle }
     }
 
-    /// Senza cache, come `MonitoringChart`: l'immagine congelata fra un
-    /// ridisegno e l'altro e' cio' che rende visibile lo scatto.
+    /// Keep the composite geometry fixed between samples: repeatedly moving
+    /// its filled polygons by fractions of a pixel makes software rendering shimmer.
     #[inline]
     fn draw<R: Renderer, F: Fn(&mut Frame)>(&self, r: &R, size: Size, f: F) -> Geometry {
-        refresh_frame(&self.cache, &self.frame_slot);
         R::draw_cache(r, &self.cache, size, f)
     }
 
@@ -880,10 +1038,10 @@ impl Chart<Message> for OverlapChart {
             Err(_) => return,
         };
 
-        let axis_labels = if chart.plotting_area().dim_in_pixel().1 < 100 { 3 } else { 5 };
+        let axis_labels = ((chart.plotting_area().dim_in_pixel().1 / 24) as usize).clamp(2, 5);
         let _ = chart.configure_mesh()
-            .bold_line_style(RGBAColor(0, 180, 120, 0.10))
-            .light_line_style(RGBAColor(0, 100, 70, 0.04))
+            .bold_line_style(if crate::appearance::active() { RGBAColor(90, 155, 95, 0.28) } else { RGBAColor(0, 180, 120, 0.10) })
+            .light_line_style(if crate::appearance::active() { RGBAColor(70, 125, 80, 0.16) } else { RGBAColor(0, 100, 70, 0.04) })
             .axis_style(ShapeStyle::from(LABEL_CLR).stroke_width(0))
             .y_labels(axis_labels).x_labels(4)
             .y_label_style(("sans-serif", 10).into_font().color(&LABEL_CLR)
@@ -1240,5 +1398,37 @@ mod test_scala_stabile {
         let (a, b) = finestra_verticale(None, 15.0, 15.0, 3.0);
         assert!(b > a, "finestra piatta: {a}..{b}");
         assert!(a.is_finite() && b.is_finite());
+    }
+}
+
+#[cfg(test)]
+mod tf3_history_tests {
+    use super::*;
+    #[test]
+    fn tf2_missing_sample_is_not_zero_and_reconnect_starts_new_history() {
+        let mut charts = ChartGroup::default();
+        let t = Utc::now();
+        let reading = crate::tf2::Reading { flow_lph: 210.0, sampled_at: std::time::Instant::now() };
+        charts.update_tf2(Some((t, reading)));
+        charts.update_tf2(None);
+        assert!(!charts.tf2_live);
+        assert_eq!(charts.tf2_flow.points.front().unwrap().1, 210.0);
+        charts.update_tf2(Some((t + chrono::Duration::seconds(10), reading)));
+        assert!(charts.tf2_live);
+        assert_eq!(charts.tf2_flow.points.len(), 1);
+    }
+    #[test] fn missing_tf3_never_fabricates_zero_and_reconnect_starts_new_segment() {
+        let mut charts=ChartGroup::default();
+        let t=Utc::now();
+        let r=crate::tf3::Reading {coolant_c:30.0,ambient_c:25.0,pressure_bar:0.0,sampled_at:std::time::Instant::now()};
+        charts.update_tf3(Some((t,r)));
+        charts.update_tf3(None);
+        assert!(!charts.tf3_live);
+        assert_eq!(charts.tf3_coolant.points.len(),1);
+        charts.update_tf3(Some((t+chrono::Duration::seconds(10),r)));
+        assert_eq!(charts.tf3_coolant.points.len(),1);
+        assert_eq!(charts.tf3_pressure.points.front().unwrap().1,0.0);
+        for i in 0..400 {charts.update_tf3(Some((t+chrono::Duration::seconds(i+11),r)));}
+        assert!(charts.tf3_coolant.points.len()<=181);
     }
 }

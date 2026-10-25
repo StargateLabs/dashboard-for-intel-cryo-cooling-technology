@@ -30,27 +30,7 @@ use crate::{
 
 const OCP_DEBOUNCE_THRESHOLD: u32 = 3;
 
-/// **Tetto di potenza del controller, in watt.**
-///
-/// `max_power` e' una **percentuale firmware**, non un watt: il firmware la
-/// traduce in watt con un proprio fattore, e su questo hardware 100% valgono
-/// circa 230 W. Il controller Gen 1, pero', porta 200 W. Il risultato era che
-/// con la percentuale al massimo si chiedevano ~230 W, cioe' il 115% del
-/// tetto: il modulo segnalava OCP, il firmware tagliava, e quei watt erano
-/// sprecati perche' il freddo non arrivava.
-///
-/// Non c'era **nessun tetto in watt** nel codice: solo la percentuale, che
-/// non sa nulla dell'hardware.
-///
-/// **Cambia questo numero se cambi controller.** Il Gen 2 regge piu'
-/// corrente, e con lui il tetto sale. Il valore e' dichiarato qui perche'
-/// e' la radice del difetto: se non lo vedi, il bug torna.
-const TETTO_WATT_CONTROLLER: f32 = 200.0;
 
-/// Watt che il firmware ottiene al 100% della percentuale, misurati su questo
-/// hardware (10,38 V × 21,70 A a piena richiesta ≈ 225 W osservati, 230 W
-/// dichiarati). Serve per tradurre il tetto in watt nella percentuale.
-const WATT_AL_100_PERCENTO: f32 = 230.0;
 
 /// Ogni 2 s la lettura della CPU, espresso in tick.
 ///
@@ -390,6 +370,7 @@ pub struct RunningState {
     chart:             ChartGroup,
     inputs:            Inputs,
     error_text:        Option<String>,
+    autostart_enabled: bool,
     /// **Modal informativo con titolo proprio** (titolo, testo).
     ///
     /// `error_text` mostra una card intitolata "Errore": va bene per un
@@ -420,6 +401,11 @@ pub struct RunningState {
     efficienza_precedente: Option<(f32, f32)>,
     last_cond_margin:  f32,
     last_cpu_temp_ext: Option<f32>,
+    cpu_clock: Option<crate::cpu_clock::Clock>,
+    tf3: crate::tf3::Reader,
+    last_tf3_sample: Option<Instant>,
+    tf2: crate::tf2::Reader,
+    last_tf2_sample: Option<Instant>,
     last_gpu_temp_ext: Option<f32>,
     /// FEAT #5: pump RPM — letto dai sensori ventola per alert emergenza pompa
     last_pump_rpm: f32,
@@ -730,6 +716,7 @@ impl RunningState {
             curva_ultimo_istante: None,
             inputs: Inputs::default(),
             error_text: None,
+            autostart_enabled: crate::autostart::is_autostart_enabled(),
             info_modale: None,
             // Frequenza di **richiesta** del campione: 2 Hz, come prima.
             //
@@ -743,6 +730,11 @@ impl RunningState {
             last_pcb_temperature: f32::NAN,
             rendimento_marginale: None, efficienza_precedente: None,
             last_cpu_temp_ext: None,
+            cpu_clock: crate::cpu_clock::read(),
+            tf3: crate::tf3::Reader::new(),
+            last_tf3_sample: None,
+            tf2: crate::tf2::Reader::new(),
+            last_tf2_sample: None,
             last_gpu_temp_ext: None,
             last_pump_rpm: 0.0,
             pump_readable: false,
@@ -1566,16 +1558,6 @@ impl RunningState {
         ((cap as f32 * fattore).round() as u8).min(cap)
     }
 
-    /// `true` se la percentuale scelta chiede piu' watt di quanto il
-    /// controller dovrebbe erogare stabilmente.
-    ///
-    /// Serve solo per l'avviso in diagnostica: **non limita nulla**.
-    fn potenza_supera_tetto_hardware(&self) -> bool {
-        let richiesti = self.inputs.max_power as f32 / 100.0 * WATT_AL_100_PERCENTO;
-        richiesti > TETTO_WATT_CONTROLLER
-    }
-
-
     /// Raccoglie un campione gia' eseguito dal thread, **senza bloccare**.
     ///
     /// `try_recv` e non `recv`: questa funzione gira dentro il tick e non
@@ -2132,7 +2114,32 @@ impl RunningState {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::AutostartToggled(enabled) => {
+                if let Err(e) = crate::autostart::toggle_autostart(enabled) {
+                    self.error_text = Some(format!("Errore avvio automatico: {e}"));
+                } else {
+                    self.autostart_enabled = enabled;
+                }
+            }
             Message::Tick => {
+                self.cpu_clock = crate::cpu_clock::read();
+                let tf3_sample = self.tf3.latest();
+                if let Some(reading) = self.tf2.latest() {
+                    if self.last_tf2_sample != Some(reading.sampled_at) {
+                        self.chart.update_tf2(Some((chrono::Utc::now(), reading)));
+                        self.last_tf2_sample = Some(reading.sampled_at);
+                    }
+                } else {
+                    self.chart.update_tf2(None);
+                }
+                if let Some(reading) = tf3_sample {
+                    if self.last_tf3_sample != Some(reading.sampled_at) {
+                        self.chart.update_tf3(Some((chrono::Utc::now(), reading)));
+                        self.last_tf3_sample = Some(reading.sampled_at);
+                    }
+                } else {
+                    self.chart.update_tf3(None);
+                }
                 // ── Watchdog finestra nascosta ──────────────────────
                 // "Nascondi" ha come unico recupero il tray. Se l'icona non
                 // e' raggiungibile la dashboard restava nascosta per sempre,
@@ -2290,7 +2297,7 @@ impl RunningState {
                 if self.auto_save_ticks % 600 == 0 && self.auto_save_ticks > 0 {
                     if let Ok(path) = self.auto_save_csv() {
                         // Aggiorna la status bar silenziosamente (nessun modal)
-                        self.pdf_status = Some(format!("💾 Auto-save: {}", path.file_name()
+                        self.pdf_status = Some(format!("✓ Salvataggio automatico: {}", path.file_name()
                             .and_then(|n| n.to_str()).unwrap_or("cryo_autosave.csv")));
                     }
                 }
@@ -2377,10 +2384,11 @@ impl RunningState {
                             && !self.mode_ack_pending
                             && self.tec_status.contains(TecStatus::PID_RUNNING) {
                             let budget = 200.0 * self.inputs.max_power.min(100) as f32 / 100.0;
-                            if let Some(offset) = self.tec_regulator.update_with_cpu(
+                            if let Some(offset) = self.tec_regulator.update_with_loop(
                                 self.regulation_started.elapsed().as_secs_f64(), data.tec_temperature,
                                 data.dew_point_temperature, data.pcb_temperature,
                                 data.tec_power_watts, self.regulation_offset, budget, Self::CTRL_SOFT, Profile { name: self.inputs.profile_name.clone(), ..Profile::default() }.margine_sicuro(), self.last_cpu_temp_ext,
+                                self.tf3.latest().map(|r| r.coolant_c),
                             ) {
                                 self.scrivi_tec(crate::attore_tec::Richiesta::Setpoint(offset));
                                 crate::commissioning::event("REGOLAZIONE-GEN1", &format!("offset={offset:.2} watt={:.1} budget={budget:.1} {}", data.tec_power_watts, self.tec_regulator.status));
@@ -3636,6 +3644,8 @@ impl RunningState {
 
     // ── View ──────────────────────────────────────────────────────────────────
 
+    pub fn show_chart_history(&mut self, group: Option<usize>) { self.chart.show_history(group); }
+
     /// Sfondo con gradiente: metodo invece di closure per non impigliarsi nei
     /// lifetime. Costa una sola passata di fill, nessuna allocazione.
     fn backdrop(content: Element<'_, Message>) -> Element<'_, Message> {
@@ -3665,14 +3675,14 @@ impl RunningState {
         Container::new(content)
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(move |_: &iced::Theme| iced::widget::container::Style {
+            .style(move |_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                 background: Some(iced::Background::Gradient(
                     palette::app_gradient_alpha(VETRO),
                 )),
                 border: iced::Border::default(),
                 text_color: None,
                 shadow: iced::Shadow::default(),
-            })
+            }))
             .into()
     }
 
@@ -3697,7 +3707,7 @@ impl RunningState {
         const SIDEBAR_W: f32   = 340.0;
         const CHARTS_MIN_W: f32 = 520.0;  // sotto, i grafici sono illeggibili
         const SENSORS_MIN_W: f32 = 380.0; // pulsanti (132) + testo + padding
-        const SIDE_BY_SIDE_MIN_W: f32 = SIDEBAR_W + CHARTS_MIN_W + SENSORS_MIN_W;
+        const SIDE_BY_SIDE_MIN_W: f32 = SIDEBAR_W + CHARTS_MIN_W + SENSORS_MIN_W + 14.0;
 
         // ── Larghezza massima del contenuto ─────────────────────────────
         // Su un monitor ultrawide (5120px) il layout a 3 colonne stirato
@@ -3740,7 +3750,7 @@ impl RunningState {
             let right = if sensors_beside {
                 Into::<Element<'_, Message>>::into(
                     Row::new()
-                        .spacing(0)
+                        .spacing(6)
                         .push(
                             Container::new(charts)
                                 .width(Length::Fill)
@@ -3766,19 +3776,20 @@ impl RunningState {
                         .push(
                             Container::new(charts)
                                 .width(Length::Fill)
-                                .height(Length::FillPortion(62)),
+                                .height(Length::FillPortion(68)),
                         )
                         .push(
                             Container::new(self.sensors.view())
                                 .width(Length::Fill)
-                                .height(Length::FillPortion(38)),
+                                .height(Length::FillPortion(32))
+                                .padding(iced::Padding { top: 6.0, right: 0.0, bottom: 0.0, left: 0.0 }),
                         )
                 )
             };
 
             // Body: sidebar a sinistra (larghezza fissa), contenuto a destra
             let body = Row::new()
-                .spacing(0)
+                .spacing(8)
                 .height(Length::Fill)
                 .push(self.view_left_column())
                 .push(right);
@@ -3836,14 +3847,14 @@ impl RunningState {
                             .push(
                                 Container::new(self.chart.view())
                                     .width(Length::Fill)
-                                    .height(Length::FillPortion(62))
+                                    .height(Length::FillPortion(68))
                                     .padding(iced::Padding { top: 0.0, right: 2.0, bottom: 0.0, left: 2.0 }),
                             )
                             .push(
                                 Container::new(self.sensors.view())
                                     .width(Length::Fill)
-                                    .height(Length::FillPortion(38))
-                                    .padding(iced::Padding { top: 0.0, right: 2.0, bottom: 0.0, left: 2.0 }),
+                                    .height(Length::FillPortion(32))
+                                    .padding(iced::Padding { top: 6.0, right: 2.0, bottom: 0.0, left: 2.0 }),
                             ),
                     )
                     .into()
@@ -3856,13 +3867,9 @@ impl RunningState {
         // copre l'intera finestra. Con la colonna larga 340 px la foto
         // occupava solo quella striscia, e lo sfondo opaco copriva tutto il
         // resto: due superfici diverse, cioe' la dashboard "divisa a meta'".
+        let backdrop = crate::appearance::background(self.bg_handle.clone());
         iced::widget::Stack::new()
-            .push(
-                iced::widget::Image::new(self.bg_handle.clone())
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .content_fit(iced::ContentFit::Cover),
-            )
+            .push(backdrop)
             .push(base)
             .push(self.view_modals())
             .into()
@@ -4064,11 +4071,11 @@ impl RunningState {
                     Container::new(iced::widget::Image::new(crate::icons::plate())
                         .width(Length::Fixed(22.0)).height(Length::Fixed(22.0)))
                         .padding(6)
-                        .style(move |_:&iced::Theme| iced::widget::container::Style {
+                        .style(move |_:&iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                             background:Some(iced::Background::Color(iced::Color {a:0.10,..accent})),
                             border:iced::Border {color:iced::Color {a:0.40,..accent},width:1.0,radius:10.0.into()},
                             ..Default::default()
-                        }),
+                        })),
                 )
                 .push(
                     Column::new()
@@ -4088,17 +4095,17 @@ impl RunningState {
                         ,
                 )
             .push(Container::new(Text::new(potenza).size(13).color(palette::TEXT_BRIGHT))
-                .padding([5,7]).style(move |_:&iced::Theme| iced::widget::container::Style {
+                .padding([5,7]).style(move |_:&iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                     background:Some(iced::Background::Color(iced::Color::from_rgba8(4,12,19,0.80))),
                     border:iced::Border {color:iced::Color {a:0.20,..accent},width:1.0,radius:8.0.into()},
                     ..Default::default()
-                }));
+                })));
         let grafico = Container::new(striscia).padding([3,4]).width(Length::Fill)
-            .style(|_:&iced::Theme| iced::widget::container::Style {
+            .style(|_:&iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                 background:Some(iced::Background::Color(iced::Color::from_rgba8(3,10,17,0.60))),
                 border:iced::Border {color:iced::Color::from_rgba8(109,163,191,0.14),width:1.0,radius:6.0.into()},
                 ..Default::default()
-            });
+            }));
         let tasto_grosso: iced::Element<'_, Message> = iced::widget::button(
             Column::new().spacing(7).push(testata).push(grafico)
         )
@@ -4235,7 +4242,7 @@ impl RunningState {
                 .padding([4, 6])
                 // `Container::style` non prende gli stili dei pulsanti: qui
                 // basta una tinta rossa scurissima, il testo fa il resto.
-                .style(|_: &iced::Theme| iced::widget::container::Style {
+                .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                     background: Some(iced::Background::Color(
                         iced::Color { r: palette::DANGER.r * 0.22, g: palette::DANGER.g * 0.22, b: palette::DANGER.b * 0.22, a: 1.0 },
                     )),
@@ -4245,10 +4252,17 @@ impl RunningState {
                         radius: 6.0.into(),
                     },
                     ..Default::default()
-                })
+                }))
                 .into()
             } else {
-                iced::widget::Space::new(Length::Fill, Length::Fixed(36.0)).into()
+                let sample = self.tf3.latest();
+                let summary = sample.map(|r| format!("TF3 · liquido {:.1} °C · ambiente {:.1} °C", r.coolant_c, r.ambient_c))
+                    .unwrap_or_else(|| "TF3 · dati USB non disponibili".to_owned());
+                Container::new(Column::new().spacing(2)
+                    .push(Text::new(summary).size(10).color(palette::BLUE_PRIMARY))
+                    .push(Text::new("Regolazione liquido: riduce da 38 °C · ripristina a 36 °C")
+                        .size(9).color(palette::BLUE_DIM)))
+                    .width(Length::Fill).height(Length::Fixed(36.0)).into()
             }; avviso })
             .push(Row::new()
                 .spacing(6)
@@ -4624,19 +4638,19 @@ impl RunningState {
                                 Container::new(iced::widget::Space::with_width(Length::Fixed(3.0)))
                                     .width(Length::Fixed(3.0))
                                     .height(Length::Fixed(22.0))
-                                    .style(move |_: &iced::Theme| iced::widget::container::Style {
+                                    .style(move |_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                                         background: Some(iced::Background::Color(colore)),
                                         border: iced::Border::default(),
                                         text_color: None,
                                         shadow: iced::Shadow::default(),
-                                    }),
+                                    })),
                             )
                             .push(riga_testo)
                             .width(Length::Fill),
                     )
                     .width(Length::Fill)
                     .padding([8, 9])
-                    .style(move |_: &iced::Theme| iced::widget::container::Style {
+                    .style(move |_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                         background: Some(iced::Background::Color(iced::Color {
                             r: colore.r * fondo + 0.012,
                             g: colore.g * fondo + 0.028,
@@ -4652,7 +4666,7 @@ impl RunningState {
                         },
                         text_color: None,
                         shadow: palette::glow(colore, 0.20),
-                    }),
+                    })),
                 );
             }
             acol.into()
@@ -4791,11 +4805,11 @@ impl RunningState {
             );
 
         Container::new(sidebar_scrollable)
-            .style(|_: &iced::Theme| iced::widget::container::Style {
+            .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                 background: Some(iced::Background::Color(iced::Color::from_rgba8(3,18,23,0.52))),
                 border: iced::Border {color:iced::Color::from_rgba8(80,165,175,0.15),width:1.0,radius:12.0.into()},
                 ..Default::default()
-            }).into()
+            })).into()
     }
 
     /// Hero: identita' del prodotto a sinistra, strumenti di misura a destra.
@@ -5098,7 +5112,7 @@ impl RunningState {
                 .height(Length::Fixed(LOGO_H))
         )
         .padding(LOGO_PAD)
-        .style(|_: &iced::Theme| iced::widget::container::Style {
+        .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
             background: Some(iced::Background::Color(palette::GLASS_HI)),
             // Stesso raggio della maschera applicata in build.rs: altrimenti
             // il logo sembra una foto quadrata incollata sopra una tonda.
@@ -5114,7 +5128,7 @@ impl RunningState {
             },
             shadow: palette::glow(iced::Color { r: 0.0, g: 0.7, b: 0.9, a: 1.0 }, 0.26),
             text_color: None,
-        });
+        }));
 
         // ── Identita' ────────────────────────────────────────────
         // Titolo, sottotitolo, e sotto la riga di stato che il desktop
@@ -5191,6 +5205,10 @@ impl RunningState {
                     .size(9).color(palette::WARNING)
                 });
 
+        let identity = identity.push(
+            Row::new().spacing(6).push(crate::appearance::switch()).push(crate::appearance::earth_switch())
+        );
+
         // ── Una lettura ──────────────────────────────────────────
         // Tre righe: etichetta 8 px, valore 22 px nel colore di stato,
         // didascalia 9 px. La didascalia e' la parte che rende il numero
@@ -5235,9 +5253,7 @@ impl RunningState {
                         .align_y(iced::Alignment::Center)
                         .push(
                             iced::widget::Image::new(icona)
-                                .width(Length::Fixed(24.0))
-                                .height(Length::Fixed(24.0))
-                                .opacity(0.92_f32),
+                                .width(Length::Fixed(24.0)).height(Length::Fixed(24.0)).opacity(0.92_f32),
                         )
                         .push(Text::new(titolo).size(10).color(palette::TEXT_BRIGHT)),
                 )
@@ -5397,6 +5413,7 @@ impl RunningState {
                         .opacity(0.92_f32),
                 )
                 .push(Text::new("STRUMENTAZIONE").size(11).color(palette::TEXT_BRIGHT))
+
                 .push(iced::widget::Space::with_width(Length::Fill))
                 .push(Text::new("LIVE").size(9).color(palette::NEON_GREEN));
             Container::new(
@@ -5407,7 +5424,7 @@ impl RunningState {
             )
             .width(Length::Fixed(grid_w))
             .padding([GRID_PAD_Y, GRID_PAD_X])
-            .style(|_: &iced::Theme| iced::widget::container::Style {
+            .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                 background: Some(iced::Background::Color(
                     iced::Color { r: 0.012, g: 0.042, b: 0.055, a: 0.92 },
                 )),
@@ -5423,7 +5440,7 @@ impl RunningState {
                 // dover spostare niente, ed e' quello che fa leggere
                 // "premium" senza aggiungere un altro elemento.
                 shadow: palette::glow(iced::Color { r: 0.0, g: 0.6, b: 0.8, a: 1.0 }, 0.28),
-            })
+            }))
             .into()
         };
 
@@ -5491,6 +5508,10 @@ impl RunningState {
             // scambio di slot e la riga non cambia struttura.
             if let Some(c) = self.view_cryo_banner(cryo_visibile) {
                 riga = riga.push(c);
+            } else {
+                // Keep the frequency slot clear when the temperature warning is hidden.
+                riga = riga.push(iced::widget::Space::new(
+                    Length::Fixed(CRYO_DISPLAY_W), Length::Fixed(cryo_display_h)));
             }
             riga
                 .push(iced::widget::Space::with_width(Length::Fill))
@@ -5506,12 +5527,21 @@ impl RunningState {
         // fascia con il fondo a vuoto. Con due spazi elastici sopra e sotto
         // il vuoto si divide in due e la fascia resta centrata sia col
         // banner sia senza.
+        // Anchor the badge to the content row, whose bottom is the info card in portrait.
+        let badge_x = logo_w + LOGO_PAD*2.0 + GAP + IDENTITY_W + GAP;
+        let body: Element<'_, Message> = iced::widget::Stack::with_children([
+            body,
+            Container::new(self.view_cpu_clock())
+                .padding(iced::Padding {left:badge_x,top:0.0,right:0.0,bottom:0.0})
+                .align_y(iced::alignment::Vertical::Bottom)
+                .width(Length::Fill).height(Length::Fill).into(),
+        ]).into();
         let contenuto_centrato = Column::new()
             .push(iced::widget::Space::with_height(Length::Fill))
             .push(body)
             .push(iced::widget::Space::with_height(Length::Fill));
 
-        Container::new(contenuto_centrato)
+        let hero = Container::new(contenuto_centrato)
             .width(Length::Fill)
             .height(Length::Fixed(banner_h))
             .padding(iced::Padding {
@@ -5520,7 +5550,7 @@ impl RunningState {
                 bottom: PAD_Y / 2.0,
                 left: 14.0,
             })
-            .style(|_: &iced::Theme| iced::widget::container::Style {
+            .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                 // **Vetro.** Gli alpha erano 0,98 / 0,97 / 0,96: di fatto
                 // opachi, e la fascia si leggeva come un blocco scuro
                 // appoggiato sopra la foto invece che come un vetro steso
@@ -5552,8 +5582,39 @@ impl RunningState {
                 },
                 text_color: None,
                 shadow: iced::Shadow::default(),
-            })
-            .into()
+            }));
+        hero.into()
+    }
+
+    fn view_cpu_clock(&self) -> Element<'_, Message> {
+        let boost = self.cpu_clock.is_some_and(|c| c.mhz > 6200.0);
+        let accent = iced::Color::from_rgb8(91,226,255);
+        let frequency_color = match self.cpu_clock {
+            Some(c) if c.mhz > 6200.0 => iced::Color::from_rgb8(255,35,65),
+            Some(c) if c.mhz > 5800.0 => iced::Color::from_rgb8(30,160,255),
+            Some(_) => iced::Color::from_rgb8(57,255,20),
+            None => palette::BLUE_DIM,
+        };
+        let value = self.cpu_clock.map(|c| format!("{:.3}",c.mhz/1000.0)).unwrap_or_else(|| "—".into());
+        let source = self.cpu_clock.map(|c| c.source).unwrap_or("N/D");
+        let header = Row::new().push(Text::new("CPU CORE MAX").size(8).color(accent))
+            .push(iced::widget::Space::with_width(Length::Fill))
+            .push(Text::new(if self.cpu_clock.is_none() {"N/D"} else if boost {"> 6.2"} else {"LIVE"}).size(8).color(accent));
+        let reading = Row::new().spacing(3).align_y(iced::Alignment::Center)
+            .push(Text::new(value).size(23).color(frequency_color))
+            .push(Text::new("GHz").size(10).color(accent))
+            .push(iced::widget::Space::with_width(Length::Fill))
+            .push(Text::new(source).size(7).color(palette::BLUE_DIM));
+        Container::new(Column::new().spacing(1).push(header).push(reading))
+            .width(Length::Fixed(CRYO_DISPLAY_W)).height(Length::Fixed(48.0)).padding([4,8])
+            .style(move |_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
+                background: Some(iced::Background::Gradient(iced::Gradient::Linear(
+                    iced_core::gradient::Linear::new(0.0)
+                        .add_stop(0.0,iced::Color::from_rgb8(13,39,51))
+                        .add_stop(1.0,iced::Color::from_rgb8(5,16,27))))),
+                border: iced::Border { color:accent,width:1.0,radius:9.0.into() },
+                shadow:palette::glow(accent,0.18),text_color:None,
+            })).into()
     }
     /// Strip orizzontale con metriche chiave — solo in portrait
     ///
@@ -5583,7 +5644,7 @@ impl RunningState {
             )
             .width(Length::Fill)
             .padding([8, 4])
-            .style(|_: &iced::Theme| iced::widget::container::Style {
+            .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                 // Superficie appena più chiara dello sfondo: separa senza strappare.
                 background: Some(iced::Background::Color(iced::Color {
                     r: 0.02, g: 0.10, b: 0.08, a: 0.88,
@@ -5601,7 +5662,7 @@ impl RunningState {
                     blur_radius: 6.0,
                 },
                 text_color: None,
-            })
+            }))
         };
 
         let cpu_str = self.last_cpu_temp_ext
@@ -6010,6 +6071,13 @@ impl RunningState {
                 )
         );
 
+        #[cfg(target_os = "windows")]
+        { col = col.push(iced::widget::Toggler::new(self.autostart_enabled)
+            .label("Avvio automatico con Windows")
+            .text_size(11)
+            .style(crate::btn::toggler)
+            .on_toggle(Message::AutostartToggled)); }
+
         // Pannello diagnostico: attivabile con "Debug".
         // Prima questo pulsante alternava un flag che non mostrava nulla
         // (nessun feedback visibile). Ora espone i dati che servono
@@ -6061,7 +6129,7 @@ impl RunningState {
                 )
                 .width(Length::Fill)
                 .padding([8, 8])
-                .style(|_: &iced::Theme| iced::widget::container::Style {
+                .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                     background: Some(iced::Background::Color(iced::Color {
                         r: 0.0, g: 0.06, b: 0.05, a: 0.88,
                     })),
@@ -6072,7 +6140,7 @@ impl RunningState {
                     },
                 text_color: None,
                 shadow: iced::Shadow::default(),
-            })
+            }))
         );
         }
 
@@ -6190,10 +6258,10 @@ impl RunningState {
                     // Come sopra: dimensioni esplicite della finestra.
                     .width(Length::Fixed(self.win_w as f32)).height(Length::Fixed(self.win_h as f32))
                     .center_x(Length::Fixed(self.win_w as f32)).center_y(Length::Fixed(self.win_h as f32))
-                    .style(|_: &iced::Theme| iced::widget::container::Style {
+                    .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                         background: Some(iced::Background::Color(iced::Color { r: 0.0, g: 0.0, b: 0.0, a: 0.65 })),
                         ..Default::default()
-                    })
+                    }))
             );
         }
 
@@ -6216,10 +6284,10 @@ impl RunningState {
                     // Come sopra: dimensioni esplicite della finestra.
                     .width(Length::Fixed(self.win_w as f32)).height(Length::Fixed(self.win_h as f32))
                     .center_x(Length::Fixed(self.win_w as f32)).center_y(Length::Fixed(self.win_h as f32))
-                    .style(|_: &iced::Theme| iced::widget::container::Style {
+                    .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                         background: Some(iced::Background::Color(iced::Color { r: 0.0, g: 0.0, b: 0.0, a: 0.65 })),
                         ..Default::default()
-                    })
+                    }))
             );
         }
 
@@ -6320,10 +6388,10 @@ impl RunningState {
                 Container::new(info_card)
                     .width(Length::Fixed(self.win_w as f32)).height(Length::Fixed(self.win_h as f32))
                     .center_x(Length::Fixed(self.win_w as f32)).center_y(Length::Fixed(self.win_h as f32))
-                    .style(|_: &iced::Theme| iced::widget::container::Style {
+                    .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                         background: Some(iced::Background::Color(iced::Color { r: 0.0, g: 0.0, b: 0.0, a: 0.65 })),
                         ..Default::default()
-                    })
+                    }))
             );
         }
 
@@ -6365,12 +6433,12 @@ impl RunningState {
                     .push(
                         Container::new(iced::widget::Space::with_width(Length::Fill))
                             .height(Length::Fixed(1.0))
-                            .style(|_: &iced::Theme| iced::widget::container::Style {
+                            .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                                 background: Some(iced::Background::Color(
                                     iced::Color { r: 0.10, g: 0.45, b: 0.55, a: 0.45 },
                                 )),
                                 ..Default::default()
-                            }),
+                            })),
                     )
                     .push({
                         // Tipizzato esplicitamente: senza, il compilatore
@@ -6518,12 +6586,12 @@ impl RunningState {
                 .push(
                     Container::new(iced::widget::Space::with_width(Length::Fill))
                         .height(Length::Fixed(1.0))
-                        .style(move |_: &iced::Theme| iced::widget::container::Style {
+                        .style(move |_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                             background: Some(iced::Background::Color(iced::Color {
                                 r: 0.10, g: 0.13, b: 0.14, a: 0.6,
                             })),
                             ..Default::default()
-                        }),
+                        })),
                 );
             }
 
@@ -6819,12 +6887,12 @@ impl RunningState {
                 .height(Length::Fixed(self.win_h as f32))
                 .center_x(Length::Fixed(self.win_w as f32))
                 .center_y(Length::Fixed(self.win_h as f32))
-                .style(|_: &iced::Theme| iced::widget::container::Style {
+                .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                     background: Some(iced::Background::Color(
                         iced::Color { r: 0.0, g: 0.0, b: 0.0, a: 0.72 },
                     )),
                     ..Default::default()
-                }),
+                })),
             );
         }
 
@@ -6995,24 +7063,13 @@ impl RunningState {
                 note = note.push(
                     Row::new().spacing(5)
                         .push(
-                            Text::new("Protezioni attive:").size(11)
+                            Text::new("Regolazione e protezioni:").size(11)
                                 .color(palette::BLUE_DIM),
                         )
                         .push(
                             Text::new(attive.join(" \u{00B7} ")).size(11)
                                 .color(palette::WARNING),
                         ),
-                );
-            }
-            if self.potenza_supera_tetto_hardware() {
-                note = note.push(
-                    Text::new(
-                        "La percentuale scelta chiede piu' watt del tetto che il \
-                         controller dovrebbe dare in regime stabile. Non e' un \
-                         blocco: la potenza non viene limitata.",
-                    )
-                    .size(11)
-                    .color(palette::BLUE_DIM),
                 );
             }
             if let Some(msg) = &self.diagnostica_msg {
@@ -7042,7 +7099,7 @@ impl RunningState {
                 )
                 .push(griglia)
                 .push(
-                    Text::new("Problemi rilevati").size(11)
+                    Text::new("Segnalazioni rilevate").size(11)
                         .color(palette::BLUE_DIM),
                 )
                 .push(problemi)
@@ -7052,7 +7109,8 @@ impl RunningState {
                 // senza questa riga il report sembra quello del produttore.
                 .push(
                     Text::new(
-                        "Dato osservativo, non e' il self test del produttore.",
+                        "Diagnostica basata sulla telemetria; non esegue il test del produttore. \
+                         Il COP usa parametri generici e non misura l'efficienza reale del TEC.",
                     )
                     .size(10)
                     .color(palette::BLUE_DIM),
@@ -7102,11 +7160,11 @@ impl RunningState {
                     .height(Length::Fixed(self.win_h as f32))
                     .center_x(Length::Fixed(self.win_w as f32))
                     .center_y(Length::Fixed(self.win_h as f32))
-                    .style(|_: &iced::Theme| iced::widget::container::Style {
+                    .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                         background: Some(iced::Background::Color(
                             iced::Color { r: 0.0, g: 0.0, b: 0.0, a: 0.75 })),
                         ..Default::default()
-                    })
+                    }))
             );
         }
 
@@ -7198,11 +7256,11 @@ impl RunningState {
                     // Come sopra: dimensioni esplicite della finestra.
                     .width(Length::Fixed(self.win_w as f32)).height(Length::Fixed(self.win_h as f32))
                     .center_x(Length::Fixed(self.win_w as f32)).center_y(Length::Fixed(self.win_h as f32))
-                    .style(|_: &iced::Theme| iced::widget::container::Style {
+                    .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                         background: Some(iced::Background::Color(
                             iced::Color { r: 0.0, g: 0.0, b: 0.0, a: 0.7 })),
                         ..Default::default()
-                    })
+                    }))
             );
         }
 
@@ -7431,7 +7489,7 @@ fn view_badges(
             .width(Length::Fill)
             .align_x(iced::Alignment::Center)
             .padding([8, 12])
-            .style(move |_: &iced::Theme| iced::widget::container::Style {
+            .style(move |_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                 background: Some(iced::Background::Gradient(palette::status_surface(accent))),
                 border: iced::Border {
                     color: iced::Color {a:0.48,..accent},
@@ -7442,7 +7500,7 @@ fn view_badges(
                 // "neon" invece che come un rettangolo piatto.
                 shadow: palette::glow(accent, 0.25),
                 text_color: None,
-            })
+            }))
         );
     }
 
@@ -7482,7 +7540,7 @@ fn view_badges(
             .width(Length::Fill)
             .align_x(iced::Alignment::Center)
             .padding([8, 12])
-            .style(move |_: &iced::Theme| iced::widget::container::Style {
+            .style(move |_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                 background: Some(iced::Background::Gradient(palette::status_surface(power_bg))),
                 border: iced::Border {
                     color: iced::Color {a:0.48,..power_bg},
@@ -7492,7 +7550,7 @@ fn view_badges(
                 // Alone colorato coerente con la soglia di potenza raggiunta.
                 shadow: palette::glow(power_bg, 0.25),
                 text_color: None,
-            })
+            }))
         );
     }
 
@@ -7507,7 +7565,7 @@ fn view_badges(
             .width(Length::Fill)
             .align_x(iced::Alignment::Center)
             .padding([6, 12])
-            .style(|_: &iced::Theme| iced::widget::container::Style {
+            .style(|_: &iced::Theme| crate::appearance::panel(iced::widget::container::Style {
                 background: Some(iced::Background::Color(palette::DANGER)),
                 // Stesso raggio e stesso alone dei badge Cryo e OCP: tre
                 // badge affiancati, di cui uno spigoloso e piatto, si
@@ -7519,7 +7577,7 @@ fn view_badges(
                 },
                 text_color: None,
                 shadow: palette::glow(palette::DANGER, 0.45),
-            })
+            }))
         );
     }
 

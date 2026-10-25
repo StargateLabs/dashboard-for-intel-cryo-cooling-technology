@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.9.0 — Desktop update / 2026-10-25
+
+
+
+- **Telemetria del circuito:** lettori Thermaltake TF3 e TF2, grafici dedicati e gestione esplicita dei campioni mancanti o scaduti.
+- **Un solo lettore TF2:** con SignalRGB attivo, la dashboard usa i campioni pubblicati dal plugin nel log. Senza SignalRGB utilizza il lettore USB nativo. Dopo cinque secondi senza un campione valido mostra N/D.
+- **Clock CPU corrente:** lettura Core Temp v2, con massimo fra i core al momento del campione. Dati assenti o non validi restano N/D; non viene mostrato il picco storico come clock corrente.
+- **Interfaccia:** badge della frequenza, titoli dei grafici più chiari, gestione dell’avvio automatico nello stato operativo e conferma visiva corretta per il salvataggio riuscito.
+- **Rendering:** cache del grafico ridisegnata quando cambiano dati o interazione, mantenendo il renderer GPU della versione verificata.
+- **Diagnostica:** spiegazioni OCP e COP corrette; eliminata la conversione non verificata tra percentuale del comando e watt massimi. Log dei panic con backtrace; supervisore esistente conservato.
+
+
+[Note complete IT](docs/releases/DESKTOP-UPDATE-IT.md) · [Full notes EN](docs/releases/DESKTOP-UPDATE-EN.md)
+
+---
+
+# Changelog
+
 Ogni voce dichiara esplicitamente cosa **non** è stato dimostrato.
 
 Il versioning è diviso in due serie:
@@ -567,7 +585,7 @@ profili PID, integrazione HWiNFO64, tema neon green.
 - Crash `wgpu` documentato il 3 ottobre alle 02:42:28 UTC, panic in `Queue::submit`, causa
   `Parent device is lost`, uscita con codice 101. Il supervisore ha riavviato dopo 2 s e il
   controller è stato riconnesso con recupero del raffreddamento Cryo. Log completo in
-  [`logs/recovery-produzione.log`](docs/releases/logs/recovery-produzione.log).
+  ``logs/recovery-produzione.log`` (log storico non incluso nella repository).
 - Quel log raccoglie 14 uscite in tre giorni: 5 volontarie e 9 non volontarie, di cui un solo
   panic. **Il meccanismo non rende il raffreddamento indipendente da tutti i guasti
   dell'interfaccia.**
