@@ -2,6 +2,8 @@
 
 <p align="center"><img src="docs/images/logos/intel.svg" alt="Intel" height="32"> &nbsp; <img src="docs/images/logos/ek-symbol.png" alt="EK" height="32"> &nbsp; <img src="docs/images/logos/cm-logo_full.svg" alt="Cooler Master" height="32"></p>
 
+<p align="center"><a href="https://stargatelabs.github.io/dashboard-for-intel-cryo-cooling-technology/index-en.html"><b>Project showcase ↗</b></a> &nbsp; · &nbsp; <a href="https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases"><b>Download</b></a></p>
+
 # StargateCryo · Intel Cryo Cooling Dashboard
 
 [Italiano](README.md) · [English](README.en.md) · [Release](https://github.com/StargateLabs/dashboard-for-intel-cryo-cooling-technology/releases) · [Changelog](CHANGELOG.md)
