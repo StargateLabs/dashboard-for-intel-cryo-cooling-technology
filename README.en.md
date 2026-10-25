@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/images/dashboard-verticale.jpg" alt="StargateCryo dashboard — historical hardware screenshot" width="480"></p>
+<p align="center"><img src="docs/images/dashboard-rounded.svg" alt="StargateCryo dashboard — historical hardware screenshot" width="480"></p>
 
 <p align="center"><img src="docs/images/logos/intel.svg" alt="Intel" height="32"> &nbsp; <img src="docs/images/logos/ek-symbol.png" alt="EK" height="32"> &nbsp; <img src="docs/images/logos/cm-logo_full.svg" alt="Cooler Master" height="32"></p>
 
