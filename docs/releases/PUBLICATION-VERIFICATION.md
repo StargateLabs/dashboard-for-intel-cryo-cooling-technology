@@ -4,5 +4,5 @@
 - Updated Rust source copied from the working `stargate-cryo-fixed` snapshot; private settings, databases, logs and original Intel binaries excluded.
 - Fresh offline MSVC release tests: **322 application tests + 28 library tests passed (350 total)**; 0 failures. Five hardware/database-dependent integration tests remained ignored. Compilation completed successfully.
 - The controller was not stopped, reconfigured or probed during publication. Hardware-dependent tests remain ignored.
-- Existing official logos and historical hardware screenshots are preserved; the latter are identified as historical.
+- Official logos are preserved. The current dashboard screenshot was supplied by the owner on 25 October 2026; previous images remain available as historical assets.
 - Source-to-binary byte reproducibility has not been established.

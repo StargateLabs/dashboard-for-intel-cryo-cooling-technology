@@ -25,3 +25,7 @@ Le note del progetto riportano 315 test unitari per questa integrazione. I risul
 Il collaudo riguarda l’impianto modificato del laboratorio: controller Intel Cryo Gen 1 e cella TEC Gen 2. Le soglie non sono una certificazione per altri impianti. La dashboard non applica un filtro sul modello della CPU: questo non dimostra compatibilità meccanica, elettrica o termica con qualsiasi CPU.
 
 La ripresa della pressione TF3 è stata osservata dopo cambio USB e riapertura della dashboard; la ripartenza dopo rimozione completa dell’alimentazione non è dimostrata. Il valore di portata letto dal log richiede il plugin SignalRGB compatibile. L’assenza definitiva dei crash intermittenti originari non è dimostrata. Nessuna calibrazione o installazione firmware fa parte di questa release.
+
+## Schermata aggiornata
+
+[Versione desktop attuale](../images/dashboard-current.png), fornita dal proprietario il 25 ottobre 2026. Immagine originale conservata senza ritagli; cornice SVG arrotondata per la presentazione.

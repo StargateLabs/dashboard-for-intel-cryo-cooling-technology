@@ -40,9 +40,9 @@ Windows requires Rust MSVC and Visual Studio C++ Build Tools. Dependencies are r
 
 The program does not enforce a CPU-model allowlist. Cooling hardware must still meet the mounting, electrical and thermal requirements of the actual setup. Documented validation concerns a modified Gen 1 controller with a Gen 2 TEC assembly, not certification of other systems. Software thresholds and estimated COP do not replace hardware characterization.
 
-The opening screenshot is from an earlier build and is retained as hardware documentation; it is not presented as an image of the updated interface.
+The dashboard screenshot was supplied by Stargate Labs on 25 October 2026 and shows the current desktop version, including Core Temp clock, TF2/TF3 charts and the AIDA64 sensor panel. Values describe the captured moment, not a comparative benchmark.
 
-<p align="center"><img src="docs/images/dashboard-rounded.svg" alt="StargateCryo dashboard — historical hardware screenshot" width="480"></p>
+<p align="center"><img src="docs/images/dashboard-rounded.svg" alt="StargateCryo — current desktop dashboard" width="480"></p>
 
 ## Documentation
 

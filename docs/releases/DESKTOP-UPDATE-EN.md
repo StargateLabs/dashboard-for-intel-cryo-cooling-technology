@@ -25,3 +25,7 @@ Project notes record 315 unit tests for this integration. Checks rerun during pu
 Validation concerns the modified lab setup: Intel Cryo Gen 1 controller with a Gen 2 TEC assembly. Thresholds are not certified for other systems. The dashboard does not filter CPU models; this does not establish mechanical, electrical or thermal compatibility with every CPU.
 
 TF3 pressure recovery was observed after changing USB port and reopening the dashboard; recovery after complete power removal remains unproven. Log-based TF2 readings require the compatible SignalRGB plugin. Permanent elimination of the original intermittent crashes is not established. This release does not install firmware or change calibration.
+
+## Updated screenshot
+
+[Current desktop interface](../images/dashboard-current.png), supplied by the owner on 25 October 2026. The original is preserved without cropping; an SVG rounded frame is used for presentation.

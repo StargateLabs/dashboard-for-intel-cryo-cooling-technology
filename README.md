@@ -40,9 +40,9 @@ Windows richiede toolchain Rust MSVC e Visual Studio Build Tools C++. Le dipende
 
 Il programma non applica un elenco di modelli CPU consentiti. Il sistema di raffreddamento deve comunque essere compatibile con il montaggio e con i limiti elettrici e termici del proprio impianto. Il collaudo descritto riguarda un controller Gen 1 modificato con TEC Gen 2; non certifica altri impianti. Le soglie software e il COP stimato non sostituiscono una caratterizzazione hardware.
 
-Lo screenshot in apertura appartiene a una build precedente ed è conservato come documentazione del dispositivo; non viene presentato come immagine della nuova interfaccia.
+La schermata della dashboard è stata fornita da Stargate Labs il 25 ottobre 2026 e mostra la versione desktop attuale, con clock Core Temp, grafici TF2/TF3 e pannello sensori AIDA64. I valori sono quelli visibili al momento dello screenshot, non un benchmark comparativo.
 
-<p align="center"><img src="docs/images/dashboard-rounded.svg" alt="StargateCryo dashboard — historical hardware screenshot" width="480"></p>
+<p align="center"><img src="docs/images/dashboard-rounded.svg" alt="StargateCryo — current desktop dashboard" width="480"></p>
 
 ## Documentazione
 
