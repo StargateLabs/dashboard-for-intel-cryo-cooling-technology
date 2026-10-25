@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/images/dashboard-rounded.svg" alt="StargateCryo dashboard — historical hardware screenshot" width="480"></p>
+<p align="center"><img src="assets/hero.svg" alt="Stargate Labs — StargateCryo" width="100%"></p>
 
 <p align="center"><img src="docs/images/logos/intel.svg" alt="Intel" height="32"> &nbsp; <img src="docs/images/logos/ek-symbol.png" alt="EK" height="32"> &nbsp; <img src="docs/images/logos/cm-logo_full.svg" alt="Cooler Master" height="32"></p>
 
@@ -41,6 +41,8 @@ Windows requires Rust MSVC and Visual Studio C++ Build Tools. Dependencies are r
 The program does not enforce a CPU-model allowlist. Cooling hardware must still meet the mounting, electrical and thermal requirements of the actual setup. Documented validation concerns a modified Gen 1 controller with a Gen 2 TEC assembly, not certification of other systems. Software thresholds and estimated COP do not replace hardware characterization.
 
 The opening screenshot is from an earlier build and is retained as hardware documentation; it is not presented as an image of the updated interface.
+
+<p align="center"><img src="docs/images/dashboard-rounded.svg" alt="StargateCryo dashboard — historical hardware screenshot" width="480"></p>
 
 ## Documentation
 

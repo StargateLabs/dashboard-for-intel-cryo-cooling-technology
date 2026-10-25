@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/images/dashboard-rounded.svg" alt="StargateCryo dashboard — historical hardware screenshot" width="480"></p>
+<p align="center"><img src="assets/hero.svg" alt="Stargate Labs — StargateCryo" width="100%"></p>
 
 <p align="center"><img src="docs/images/logos/intel.svg" alt="Intel" height="32"> &nbsp; <img src="docs/images/logos/ek-symbol.png" alt="EK" height="32"> &nbsp; <img src="docs/images/logos/cm-logo_full.svg" alt="Cooler Master" height="32"></p>
 
@@ -41,6 +41,8 @@ Windows richiede toolchain Rust MSVC e Visual Studio Build Tools C++. Le dipende
 Il programma non applica un elenco di modelli CPU consentiti. Il sistema di raffreddamento deve comunque essere compatibile con il montaggio e con i limiti elettrici e termici del proprio impianto. Il collaudo descritto riguarda un controller Gen 1 modificato con TEC Gen 2; non certifica altri impianti. Le soglie software e il COP stimato non sostituiscono una caratterizzazione hardware.
 
 Lo screenshot in apertura appartiene a una build precedente ed è conservato come documentazione del dispositivo; non viene presentato come immagine della nuova interfaccia.
+
+<p align="center"><img src="docs/images/dashboard-rounded.svg" alt="StargateCryo dashboard — historical hardware screenshot" width="480"></p>
 
 ## Documentazione
 
