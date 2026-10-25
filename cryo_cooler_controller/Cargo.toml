@@ -40,7 +40,7 @@ dirs = "5"
 image = "0.24.5"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows-sys = { version = "0.48", features = [
+windows-sys = { version = "0.61", features = [
     "Win32_System_Memory",
     "Win32_Foundation",
     "Win32_System_Threading",
