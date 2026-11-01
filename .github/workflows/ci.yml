@@ -20,7 +20,7 @@ jobs:
       - name: Installa toolchain
         run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -58,7 +58,7 @@ jobs:
       - name: Installa toolchain
         run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
