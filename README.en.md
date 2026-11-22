@@ -23,6 +23,10 @@ Release v2.9.0 includes the 23 October desktop build: TF2/TF3, current Core Temp
 - Current CPU clock from Core Temp; sensor panel with documented data sources.
 - Profiles, configuration, history, reporting and recovery supervisor.
 
+## Ubuntu sources
+
+The Ubuntu variant is available in [ubuntu/](ubuntu/README.md), separate from the Windows version. It includes the dashboard, controller library and build notes; read the verification limits before use.
+
 ## Installation and update
 
 Download the executable and SHA256 file from the release. Verify the checksum using `Get-FileHash`. Before replacing an earlier version, back up configuration and data; exit through the application’s Exit command and verify control has stopped. Do not run competing programs on the same serial port. Retain the previous build for rollback.

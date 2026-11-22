@@ -1,0 +1,5 @@
+# Give the active desktop user access to the USB devices used by CryoCooling.
+SUBSYSTEM=="tty", ENV{ID_BUS}=="usb", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="264a", ATTRS{idProduct}=="233b", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="264a", ATTRS{idProduct}=="232b", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="264a", ATTRS{idProduct}=="232d", TAG+="uaccess"

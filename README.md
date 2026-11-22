@@ -23,6 +23,10 @@ La release v2.9.0 include la build desktop del 23 ottobre: TF2/TF3, clock Core T
 - Clock CPU corrente da Core Temp; pannello sensori e fonti documentate.
 - Profili, configurazione, storico, report e supervisore di recupero.
 
+## Sorgenti Ubuntu
+
+La variante Ubuntu è disponibile in [ubuntu/](ubuntu/README.md), separata dalla versione Windows. Contiene dashboard, libreria del controller e indicazioni di compilazione; consulta i limiti di verifica prima dell’uso.
+
 ## Installazione e aggiornamento
 
 Scarica l’eseguibile e il file SHA256 dalla release. Verifica il checksum con `Get-FileHash`. Prima di sostituire una versione precedente, salva configurazione e dati; chiudi la dashboard tramite il comando Esci e verifica la conclusione del controllo. Non avviare due programmi sulla stessa porta seriale. Conserva la build precedente per il ripristino.
